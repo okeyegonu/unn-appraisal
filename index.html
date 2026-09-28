@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>UNN Academic Staff Appraisal</title>
+<meta name="description" content="Prepare your University of Nigeria academic staff appraisal under the Yellow Book (5th edition): score your case, check every requirement, attach your documents, and download the filled ASAP forms as a booklet in PDF or Word.">
+<meta name="theme-color" content="#0b5d3b">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230b5d3b'/%3E%3Ctext x='16' y='22' font-family='Georgia,serif' font-size='15' font-weight='700' fill='%23f2c14e' text-anchor='middle'%3EYB%3C/text%3E%3C/svg%3E">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="stylesheet" href="./src/styles.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to the form</a>
+<header class="top">
+  <div class="brand">
+    <span class="mark" aria-hidden="true">YB</span>
+    <div>
+      <div class="title">UNN Academic Staff Appraisal</div>
+      <div class="sub">Yellow Book, 5th edition · Forms ASAP/1, ASAP/2, TSAP</div>
+    </div>
+  </div>
+  <div class="score" id="score" aria-live="polite"></div>
+  <details class="menu">
+    <summary>Save / restore</summary>
+    <div class="menu-body">
+      <p class="saved" id="saved">Your work is saved on this device as you type.</p>
+      <button type="button" id="btn-backup">Save a backup file</button>
+      <label class="button">Restore from a backup file<input type="file" id="in-restore" accept=".json,application/json" hidden></label>
+      <p class="hint">A backup holds your entries and every attached document, so you can continue on another phone or computer. Restoring the same backup twice changes nothing.</p>
+      <button type="button" id="btn-reset" class="danger">Start again (clear this device)</button>
+    </div>
+  </details>
+</header>
+
+<nav class="steps" id="steps" aria-label="Steps"></nav>
+
+<main id="main" tabindex="-1"></main>
+
+<footer class="foot">
+  <p>Nothing you enter or attach leaves this device: the site has no server. Scores follow the <cite>Guidelines for Appointments and Promotions of Academic Staff</cite> (the Yellow Book), 5th edition, effective 1 October 2017; the Department, the Faculty and the University's committees decide every case. <a href="./docs/RULES.md">The rules, clause by clause</a>.</p>
+</footer>
+
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+<script type="module" src="./src/ui/app.js"></script>
+<script>
+  if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('./sw.js').catch(() => {});
+</script>
+</body>
+</html>

@@ -1,0 +1,464 @@
+% Form ASAP/1, Form ASAP/2 and Form TSAP of the University of Nigeria, Nsukka, as a
+% fill-in template. The wording and layout are the 2019/2020 form (084-ACADEMIC-STAFF-
+% APPRAISAL-FORM.pdf, qau.unn.edu.ng); the academic year is a field.
+%
+% Every place a candidate writes is a named field. Compiling records where each field
+% sits on the page (zref-savepos); tools/build-template.mjs turns those records into
+% src/template/fields.json, which src/booklet/pdf.js uses to write entries onto
+% template.pdf in exactly the right places.
+%
+% Build: node tools/build-template.mjs   (runs pdflatex twice, then extracts the fields)
+\documentclass[12pt]{article}
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{tgtermes}
+% US Legal, as in the source (612 x 1008 pt).
+\usepackage[paperwidth=8.5in,paperheight=14in,top=1in,bottom=1in,left=1.1in,right=1in]{geometry}
+\usepackage{array,longtable}
+\usepackage{enumitem}
+\usepackage{fancyhdr}
+\usepackage{zref-savepos,zref-abspage}
+\usepackage[hidelinks,pdftitle={UNN Academic Staff Assessment/Appraisals Form (ASAP/1, ASAP/2, TSAP)},pdfauthor={University of Nigeria, Nsukka},pdfcreator={unn-appraisal},pdfproducer={unn-appraisal}]{hyperref}
+% A fixed trailer ID and no timestamps, so the template builds byte-identically.
+\pdfinfoomitdate=1
+\pdftrailerid{}
+\pdfsuppressptexinfo=-1
+
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.5em}
+\setlength{\emergencystretch}{3em}
+\renewcommand{\arraystretch}{1.2}
+
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyfoot[C]{\small\thepage}
+
+\newcolumntype{P}[1]{>{\raggedright\arraybackslash}p{#1}}
+
+% ------------------------------------------------------------------ field markers
+\makeatletter
+\zref@addprop{savepos}{abspage}
+% \mark@{name}: record a position.
+\newcommand{\markpos}[1]{\zsavepos{#1}}
+% \field{id}{w}: a fill-in rule of width w, recording where it starts and ends.
+\newcommand{\field}[2]{\markpos{f:#1:s}\rule{#2}{0.4pt}\markpos{f:#1:e}}
+% \cell{id}{w}: an empty table cell of width w that entries are written into.
+\newcommand{\cell}[2]{\markpos{c:#1:s}\hspace*{#2}\markpos{c:#1:e}}
+% \fillline{id}: a full-width fill-in line (used where officers write; recorded all the same).
+\newcommand{\fillline}[1]{\par\noindent\hspace*{2.2em}\field{#1}{\dimexpr\linewidth-2.2em}\par\vspace{0.3em}}
+\newcommand{\sect}[2]{\par\noindent\makebox[2.2em][l]{\textbf{#1}}\textbf{#2}\par}
+% \blankrows{prefix}{cols}{rows}: rows of evenly spaced fill-in rules, fields prefix.r<i>.c<j>.
+\newcount\br@row \newcount\br@col \newcount\br@cols
+% Columns are drawn by recursion rather than a nested \loop, which TeX cannot nest.
+\def\br@cells#1{%
+  \ifnum\br@col>\br@cols\else
+    \ifnum\br@cols=2 \def\br@w{\dimexpr(\linewidth-3.7em)/2\relax}\else\def\br@w{\dimexpr(\linewidth-5.2em)/3\relax}\fi
+    \edef\br@id{#1.r\the\br@row.c\the\br@col}%
+    \expandafter\field\expandafter{\br@id}{\br@w}%
+    \ifnum\br@col<\br@cols\hspace{1.5em}\fi
+    \advance\br@col 1
+    \expandafter\br@cells\expandafter{#1}%
+  \fi}
+\newcommand{\blankrows}[3]{%
+  \br@cols=#2\relax
+  \br@row=1
+  \loop\ifnum\br@row<\numexpr#3+1\relax
+    \par\noindent\hspace*{2.2em}%
+    \br@col=1 \br@cells{#1}%
+    \par\vspace{0.2em}%
+    \advance\br@row 1
+  \repeat}
+\makeatother
+\newcommand{\colheadsii}[2]{\par\noindent\hspace*{2.2em}\makebox[\dimexpr(\linewidth-3.7em)/2][l]{\hspace{1em}#1}\hspace{1.5em}\makebox[\dimexpr(\linewidth-3.7em)/2][l]{\hspace{1em}#2}\par}
+\newcommand{\colheadsiii}[3]{\par\noindent\hspace*{2.2em}\makebox[\dimexpr(\linewidth-5.2em)/3][l]{\hspace{1em}#1}\hspace{1.5em}\makebox[\dimexpr(\linewidth-5.2em)/3][l]{\hspace{1em}#2}\hspace{1.5em}\makebox[\dimexpr(\linewidth-5.2em)/3][l]{\hspace{1em}#3}\par}
+% \signoff{idL}{captionL}{idR}{captionR}
+\newcommand{\signoff}[4]{\par\vspace{1.2em}\noindent\hspace*{2.2em}\parbox[t]{5cm}{\centering\field{#1}{5cm}\\#2}\hfill\parbox[t]{6cm}{\centering\field{#3}{6cm}\\#4}\par}
+\newcommand{\signright}[2]{\hfill\parbox[t]{6cm}{\centering\field{#1}{6cm}\\#2}}
+% Section boundaries, so exhibits can be placed behind the page a section ends on.
+\newcommand{\sectionend}[1]{\markpos{s:#1}}
+\newcommand{\itemlist}{\begin{description}[leftmargin=2.2em,labelwidth=2.2em,labelsep=0pt,font=\normalfont]}
+
+\begin{document}
+
+% ======================================================================= ASAP/1
+\markpos{form:asap1:start}%
+\begin{center}
+{\bfseries\large UNIVERSITY OF NIGERIA, NSUKKA}\\
+ACADEMIC STAFF ASSESSMENT/APPRAISALS FORM\\
+(ACADEMIC YEAR: \field{year}{2.6cm})
+\end{center}
+
+\textit{(Sections A and B are to be completed in triplicate by the candidate; Section C by the Head of the Department and Section D by the Dean of the Faculty concerned). Each candidate is required to submit the electronic copy of the completed form.}
+
+\textbf{SECTION A: GENERAL INFORMATION}
+
+\begin{tabular}{@{}p{2.2em}@{}l@{}}
+I & Name\field{A1.name}{11.3cm}\\
+ & Staff No\field{A1.staff_no}{10.85cm}\\
+ & Date of Birth\field{A1.dob}{3.2cm} Marital Status\field{A1.marital}{2.5cm} Sex\field{A1.sex}{2cm}\\
+ & Department\field{A1.department}{10.25cm}\\
+ & Faculty\field{A1.faculty}{11.05cm}\\
+\end{tabular}
+
+\sect{A2}{CAREER WITHIN THIS UNIVERSITY}
+\hspace*{2.2em}(Beginning with initial appointment to present position and date attained)
+
+\colheadsii{POST}{DATE}
+\blankrows{A2}{2}{3}
+\sectionend{A2}
+
+\medskip
+\textbf{SECTION B: CRITERIA FOR WHICH POINTS MAY BE AWARDED}
+\sect{B1}{ACADEMIC QUALIFICATIONS}
+
+\begin{enumerate}[label=(\alph*),leftmargin=4.5em,labelsep=1.5em]
+\item Degree (dates and awarding bodies)\par\medskip
+\begin{tabular}{|P{4.3cm}|P{2.2cm}|P{5.8cm}|}
+\hline
+Degree(s) & Dates & Awarding Bodies\\ \hline
+\cell{B1a.r1.c1}{4.3cm} & \cell{B1a.r1.c2}{2.2cm} & \cell{B1a.r1.c3}{5.8cm}\\ \hline
+\cell{B1a.r2.c1}{4.3cm} & \cell{B1a.r2.c2}{2.2cm} & \cell{B1a.r2.c3}{5.8cm}\\ \hline
+\cell{B1a.r3.c1}{4.3cm} & \cell{B1a.r3.c2}{2.2cm} & \cell{B1a.r3.c3}{5.8cm}\\ \hline
+\cell{B1a.r4.c1}{4.3cm} & \cell{B1a.r4.c2}{2.2cm} & \cell{B1a.r4.c3}{5.8cm}\\ \hline
+\end{tabular}
+\item Diploma and Professional qualifications (dates and awarding bodies)\par\medskip
+\begin{tabular}{|P{4.3cm}|P{2.2cm}|P{5.8cm}|}
+\hline
+Diploma/Professional Qualification(s) & Dates & Granting Bodies\\ \hline
+\cell{B1b.r1.c1}{4.3cm} & \cell{B1b.r1.c2}{2.2cm} & \cell{B1b.r1.c3}{5.8cm}\\ \hline
+\cell{B1b.r2.c1}{4.3cm} & \cell{B1b.r2.c2}{2.2cm} & \cell{B1b.r2.c3}{5.8cm}\\ \hline
+\cell{B1b.r3.c1}{4.3cm} & \cell{B1b.r3.c2}{2.2cm} & \cell{B1b.r3.c3}{5.8cm}\\ \hline
+\cell{B1b.r4.c1}{4.3cm} & \cell{B1b.r4.c2}{2.2cm} & \cell{B1b.r4.c3}{5.8cm}\\ \hline
+\end{tabular}
+\end{enumerate}
+\sectionend{B1}
+
+\sect{B2}{PUBLICATIONS AND CREATIVE WORKS}
+(To be listed on a separate sheet in chronological order within the categories below. The items shall include published works).
+\begin{description}[leftmargin=2.2em,labelwidth=2.2em,labelsep=0pt,font=\bfseries]
+\item[(a)] \textbf{Books}\\
+\textit{(List mainline books and chapters in books, editorship of a book, book of general interest, monographs, translations and transcription, teachers' guide, work book and pupils' texts)}
+\item[(b)] Articles published in journal with recognized Impact Factor (Thomson Reuters, S SCimago (SJR), and Source Normalized Journal Impact per Paper (SNIP).
+\item[(c)] Articles published in journals without Impact Factor
+\item[(d)] Conference Papers\\
+(peer reviewed and Published)
+\item[(d)] Technical Reports\\
+(Letters of commissioning must be produced)
+\item[(e)] Creative Works\\
+(List Creative Works, Music, Fine and Applied Arts, Literature, Archaeology, Technical Inventions, Designs and Constructions including setting up of Laboratory/Workshop)
+\item[(g)] Patents\\
+\textbf{Items that should NOT be listed}\\
+The following items are not required and should not be listed.\\
+(a) Theses and dissertations (unless actually published as books or monographs); (b) Newspaper articles or student/popular/non-professional magazine articles; (c) Papers contributed or read at conference; (d) unpublished or rejected manuscripts (however, researched); (e) classified/secret documents (however researched); (f) unpublished manuals/manuscripts describing technical inventions or machines/designs; (g) Articles published in journals not based in Universities and Research Institutes.
+\end{description}
+\sectionend{B2}
+
+\sect{B3}{TEACHING AND PROFESSIONAL EXPERIENCE}
+\itemlist
+\item[(a)] Employment/Professional experience before Appointment in this University.
+\end{description}
+\colheadsii{Post}{Date}
+\blankrows{B3a}{2}{4}
+\begin{center}(Indicate clearly whether the post held were full-time/part time)\end{center}
+
+\itemlist
+\item[(b)] Period of Teaching Experience in this University (period of demonstrator-ship, graduate assistantship or instructorship are to be ignore)
+\end{description}
+\colheadsiii{Post}{Date}{Credit Load}
+\blankrows{B3b}{3}{3}
+
+\itemlist
+\item[(c)] Period of Study Leave/Sabbatical Leave/Secondment/Leave of Absence
+\end{description}
+\colheadsiii{Outside Institution}{From}{To}
+\blankrows{B3c}{3}{4}
+
+\itemlist
+\item[(d)] Period spent in research institutes
+\end{description}
+\colheadsiii{Institute}{From}{To}
+\blankrows{B3d}{3}{4}
+
+\itemlist
+\item[(e)] Undergraduate/Postgraduate supervisions (Credit will be given for successful completed supervision)
+\end{description}
+\colheadsiii{Project/Candidate Supervised}{Date}{Degree Awarded}
+\blankrows{B3e}{3}{4}
+\hspace*{2.2em}\parbox{\dimexpr\linewidth-2.2em}{(Where joint supervision is involved, this should be so indicated, giving names of the co-supervisors)}
+\sectionend{B3}
+
+\sect{B4}{CONFERENCES}
+\hspace*{2.2em}\parbox{\dimexpr\linewidth-2.2em}{Attendance at Conferences/Workshops (candidates to provide evidence of attendance and paper read).}
+\colheadsii{Title, Date and place}{Paper Read}
+\blankrows{B4}{2}{4}
+\sectionend{B4}
+
+\sect{B5}{ADMINISTRATIVE EXPERIENCE: COMMITTEE WORK AND GENERAL CONTRIBUTION}
+\itemlist
+\item[(a)] Deanship/Associate Deanship/Directorship/Headship/Coordinatorship experience
+\end{description}
+\colheadsii{Post}{Date}
+\blankrows{B5a}{2}{4}
+
+\itemlist
+\item[(b)] Service on Committees in this University
+\item[(i)] Elective-Departmental/Faculty Standing Committees
+\end{description}
+\colheadsiii{Committee}{Position Held}{Date}
+\blankrows{B5bi}{3}{4}
+
+\itemlist
+\item[(ii)] \mbox{}
+\end{description}
+\vspace{-1.6em}
+\colheadsiii{University Committee}{Position Held}{Date}
+\blankrows{B5bii}{3}{4}
+
+\itemlist
+\item[(c)] Service to Relevant Public Bodies/Committees
+\end{description}
+\colheadsiii{Public Body}{Position and Nature of Assignment}{Date}
+\blankrows{B5c}{3}{4}
+\sectionend{B5}
+
+\sect{B6}{CERTIFICATION}
+\hspace*{2.2em}\parbox{\dimexpr\linewidth-2.2em}{I certify that the information given above is correct, and hereby request that it be used as the basis for consideration of my candidature for appointment/Promotion in the current exercise.}
+
+\vspace{1.5em}
+\signright{B6.signature}{Signature of Candidate}
+
+\vspace{0.8em}
+\noindent Date: \field{B6.date}{5cm}\signright{B6.name}{Name of Candidate}
+\sectionend{B6}
+
+\bigskip
+\textbf{SECTION C.}\\
+(To be completed by the Head of the Department on the advice of the Departmental Appraisals Committee)
+
+\sect{C1}{GENERAL CHECKS AND CERTIFICATION}
+\hspace*{2.2em}\parbox{\dimexpr\linewidth-2.2em}{I have checked the completed assessment/appraisal form of \field{C1.name}{4.5cm}\\
+\hspace*{0.62\linewidth}Name of Candidate\\
+and certify that the information supplied is correct. (Documentary evidence where appropriate should be attached)}
+
+\sect{C2}{SCORE ON PUBLICATION AND CREATIVE WORKS}
+I certify that the department has scrutinized and evaluated the publications and creative works of the candidate and has recommended that the publications and creative works be scored (within the approved guidelines) as in the attached score sheet. (See the attached Form ASAP/2 which I have completed on behalf of the Departmental Appraisals Committee). In addition, I have the following comments on the work of the candidate:\\
+\field{C2.l1}{\linewidth}
+
+\sect{C3}{STAFF TEACHING/PROFESSIONAL EXPERIENCE, POSTGRADUATE SUPERVISION AND RESEARCH SEMINARS}
+\itemlist
+\item[(a)] Comment on the attitude of the staff concerned to his work; his/her initiative and resourcefulness; his/her sense of responsibility.
+\end{description}
+\fillline{C3a.l1}\fillline{C3a.l2}\fillline{C3a.l3}\fillline{C3a.l4}
+\itemlist
+\item[(b)] Effectiveness of the staff concerned in his/her teaching duties, his/her Committee work, postgraduate supervision and other relevant assignments
+\end{description}
+\fillline{C3b.l1}\fillline{C3b.l2}\fillline{C3b.l3}\fillline{C3b.l4}
+\hspace*{2.2em}(Provide the students courses evaluation score for the candidate for the period under review)
+\itemlist
+\item[(c)] Any other information on the staff member which you consider relevant
+\end{description}
+\fillline{C3c.l1}\fillline{C3c.l2}\fillline{C3c.l3}\fillline{C3c.l4}
+
+\sect{C4}{COMMENTS BY THE CANDIDATE}
+\hspace*{2.2em}\parbox{\dimexpr\linewidth-2.2em}{I certify that I have seen the contents of this report and that my head of Department had discussed them with me. I have the following comment(s) to make:}
+\fillline{C4.l1}\fillline{C4.l2}\fillline{C4.l3}\fillline{C4.l4}
+\signoff{C4.date}{Date}{C4.signature}{Signature of Candidate}
+\vspace{0.8em}
+\signright{C4.name}{Name of Candidate}
+
+\sect{C5}{FINAL DEPARTMENTAL RECOMMENDATION ON THE CANDIDATE}
+\hspace*{2.2em}(State the post to which the candidate is being recommended and the effective date)
+\fillline{C5.l1}\fillline{C5.l2}
+\signoff{C5.date}{Date}{C5.signature}{Signature of Head of Department}
+\vspace{0.8em}
+\signright{C5.name}{Name of Head of Department}
+
+\bigskip
+\hspace*{2.2em}\parbox{\dimexpr\linewidth-2.2em}{After section A, B and C of this form have been completed in triplicate, you should send two copies to the Dean who will later complete section D. the third copy is to be retained in the Departmental personal file of the staff concerned.}
+
+\textbf{SECTION D.}\\
+(To be completed by the Dean on the advice of the Faculty Appraisals/Assessment Committee).
+\sect{D1}{CERTIFICATION}
+\hspace*{2.2em}\parbox{\dimexpr\linewidth-2.2em}{I certify that the Faculty Appraisal/Assessment Committee has appraised/assessed the candidate, taking into consideration all the information supplied in sections A, B,C of this form by the candidate and his/her Department. In accordance with the approved guidelines for appraisals/promotions/assessments/appointments, the score sheet of the candidate as approved by the Faculty is as in the attached Form ASAP/2 which now supersedes any score sheet previously supplied by the department.}
+\sect{D2}{FACULTY RECOMMENDATION}
+\hspace*{2.2em}\parbox{\dimexpr\linewidth-2.2em}{The candidate is hereby recommended for appointment/promotion as follows: (state recommended post and effective date)}
+\fillline{D2.l1}\fillline{D2.l2}\fillline{D2.l3}
+\signoff{D2.date}{Date}{D2.signature}{Signature of the Dean of Faculty}
+\vspace{0.8em}
+\signright{D2.name}{Name of the Dean of Faculty}
+
+\bigskip
+This form will be received in duplicate from the candidate's department. After section D had been completed, also in duplicate, a copy should be forwarded to the Deputy Registrar, Personnel Services for staff member's records; while the second copy is kept in the Faculty Office personal file of the staff member concerned. Copies should later be prepared, where appropriate, for transmission to the Appointments and Promotions Committee or to the University Appraisals Committee as may be relevant.
+\markpos{form:asap1:end}
+
+% ======================================================================= ASAP/2
+\clearpage
+\markpos{form:asap2:start}%
+\begin{center}
+\textbf{UNIVERSITY OF NIGERIA}\\
+FORM ASAP/2 (ACADEMIC YEAR\field{asap2.year}{2cm})
+
+\medskip
+\textbf{ACADEMIC STAFF ASSESSMENT/APPRAISAL SCORE SHEET FOR VARIOUS CRITERIA FOR APPOINTMENT/PROMOTION}
+\end{center}
+
+Name of Candidate: \field{asap2.name}{11.4cm}
+
+Appointment/Promotion in View: \field{asap2.in_view}{9.3cm}
+
+% Each \markpos{r:<row>} sits at the start of the line an entry refers to; the columns'
+% left edges are recorded in the header row (col:n, col:s, col:r).
+{\small
+\setlength{\LTleft}{0pt}\setlength{\LTright}{0pt}
+\begin{longtable}{|P{0.9cm}|P{3.9cm}|P{3.9cm}|P{1.8cm}|P{1.5cm}|P{1.6cm}|}
+\hline
+\textbf{S/No} & \textbf{Criteria} & \textbf{Description and class of publication} & \markpos{col:n}\textbf{Number of Items Submitted} & \markpos{col:s}\textbf{Scores (point)} & \markpos{col:r}\textbf{Remarks}\\ \hline
+\endhead
+1. & \underline{\textbf{Qualifications}}\newline (a) First Degrees\newline (b) Second/Terminal Degree\newline (c) Postgraduate/ Professional Diplomas
+ & \markpos{r:qual.first}B.Sc., B.A., etc\newline \markpos{r:qual.terminal}M.Sc., MFA; Ph.D, etc\newline \markpos{r:qual.diploma}FRCP, FCVSN etc & & & \\ \hline
+2. & \textbf{Publications}\newline \textbf{(a) Books and related items:}\newline\newline\newline\newline\newline\newline
+\textbf{(b) Monographs:}\newline\newline\newline
+\textbf{(c) Journal articles}\newline\newline\newline\newline\newline\newline\newline\newline\newline
+\textbf{(d) Conference Papers (peer reviewed and published)}
+ & \markpos{r:books.book}Books (Class A, B or C)\newline\newline \markpos{r:books.chapter}Chapters in Books\newline \markpos{r:books.general}Books of general interest\newline \markpos{r:books.translation}Published translations\newline \markpos{r:books.transcription}Published transcriptions of oral text\newline\newline
+\markpos{r:monographs}Monographs (Class A, B, or C)\newline\newline
+\underline{Major:}\newline \markpos{r:journals.major.special}Special Class\dotfill\newline \markpos{r:journals.major.international}International\dotfill\newline \markpos{r:journals.major.national}Local/National\dotfill\newline\newline
+\underline{Minor:}\newline \markpos{r:journals.minor.international}International\newline \markpos{r:journals.minor.national}Local/National\newline
+\underline{Major:}\newline \markpos{r:conf.major.special}\textit{Special Class}\newline \markpos{r:conf.major.international}\textit{International}\newline \markpos{r:conf.major.national}\textit{National/Local}\newline
+\underline{Minor:}\newline \markpos{r:conf.minor.national}National/Local
+ & & & \\ \hline
+ & \textbf{(e) Technical Reports}\newline\newline \textbf{(f) Laboratory}
+ & \markpos{r:tech.major}\underline{Major:}\newline\newline \markpos{r:tech.minor}\underline{Minor:}\newline \markpos{r:lab}Laboratory Manual & & & \\ \hline
+3. & \textbf{\textit{Creative Works Literature}}\newline (a) Plays, Novels books of short stories, poetry:\newline (b) Published full length play/novel\newline (c) Published one-act play\newline (d) Direction of a professional full length play with a large cast etc
+ & \mbox{}\newline \markpos{r:lit.a}Class A, B or C\newline\newline \markpos{r:lit.b}Major: Class A, B or C\newline\newline \markpos{r:lit.c}Minor: Class A, B or C\newline \markpos{r:lit.d}Major: & & & \\ \hline
+4. & \textbf{\textit{Creative Work Music}}\newline (a) Major opera/major Works\newline (b) Short opera/Minor works/concert\newline (c) Direction/production of Major opera/concert\newline (d) Musical arrangement/ minor accompaniment\newline (e) etc
+ & \mbox{}\newline \markpos{r:music.a}Major:\newline\newline \markpos{r:music.b}Minor:\newline\newline \markpos{r:music.c}Minor:\newline\newline \markpos{r:music.d}Minor:\newline\newline \markpos{r:music.e}Etc & & & \\ \hline
+5. & \textbf{\textit{Creative Works Fine \& Applied Arts}}\newline Professional one-man exhibition,\newline Professional two-man exhibition\newline Professional group exhibition\newline Professional minor exhibition
+ & \markpos{r:arts.major}Etc\newline\newline\newline\newline\newline\newline \markpos{r:arts.minor}Etc & & & \\ \hline
+6. & \textbf{\textit{Creative Works Archaeology}}\newline (a) Archaeological finds and discoveries\newline\newline (b) Archaeological exhibition
+ & \mbox{}\newline \markpos{r:arch.major}Major: Class 1,2,3 or 4\newline\newline \markpos{r:arch.minor}Minor: Class 2,3 or 4 & & & \\ \hline
+7. & \textbf{\textit{Creative Works Technical}} & \markpos{r:techcw.major}Major:\newline \markpos{r:techcw.minor}Minor: & & & \\ \hline
+8. & \textbf{\textit{Patents}} & \markpos{r:patent.major}Major:\newline \markpos{r:patent.minor}Minor: & & & \\ \hline
+ & & \markpos{r:total}Total Score & & & \\ \hline
+\end{longtable}}
+
+\vspace{1em}
+\noindent\parbox[t]{6cm}{\field{asap2.signature}{6cm}\\Signature of Scoring Officer}
+
+\vspace{0.8em}
+\noindent Date: \field{asap2.date}{5cm}\signright{asap2.officer}{Name/Rank of Scoring Officer}
+
+\hspace*{2.2em}Note: Head of Department at the Departmental level and Dean at the Faculty level.
+\markpos{form:asap2:end}
+
+% ======================================================================= TSAP
+\clearpage
+\markpos{form:tsap:start}%
+\begin{center}
+\textbf{UNIVERSITY OF NIGERIA}\\
+FORM TSAP (ACADEMIC YEAR\field{tsap.year}{2cm})
+
+\medskip
+\textbf{TUTORIAL STAFF ASSESSMENT/APPRAISAL SCORE SHEET FOR VARIOUS CRITERIA FOR APPOINTMENT/PROMOTION}
+\end{center}
+
+\textbf{SECTION A: GENERAL INFORMATION}
+
+\begin{tabular}{@{}p{2.2em}@{}l@{}}
+1. & Name of Tutorial Candidate\field{T1.name}{4.8cm} 2. Staff Number\field{T1.staff_no}{2.3cm}\\[0.4em]
+3. & Location (Department/Division) \field{T1.location}{8.3cm}\\[0.4em]
+4. & Career within this University\field{T1.career}{8.9cm}\\[0.4em]
+5 & Career within the University:\\
+\end{tabular}
+\colheadsii{\textbf{Post}}{\textbf{Date}}
+\blankrows{T5}{2}{3}
+
+\begin{tabular}{@{}p{2.2em}@{}l@{}}
+6 & Academic/Professional Qualifications with dates:\\
+\end{tabular}
+\fillline{T6.l1}\fillline{T6.l2}\fillline{T6.l3}
+\sectionend{T6}
+\begin{tabular}{@{}p{2.2em}@{}l@{}}
+7 & Publications (to be listed on a separated sheet)\\[0.4em]
+8 & Conferences\\
+\end{tabular}
+\colheadsii{\textbf{Title, Date and place}}{\textbf{Paper Read}}
+\hspace*{3.2em}(Include evidence of attendance and paper read)
+\blankrows{T8}{2}{3}
+\sectionend{T8}
+
+\sect{9}{ADMINISTRATIVE EXPERIENCE}
+\colheadsii{\textbf{Nature of Assignment}}{\textbf{Date}}
+\blankrows{T9}{2}{3}
+\sectionend{T9}
+\hspace*{2.2em}Signature of Candidate: \field{T9.signature}{4cm}\hfill Date\field{T9.date}{4cm}
+
+\hspace*{2.2em}Name of the Candidate: \field{T9.name}{4cm}
+
+\bigskip
+\textbf{SECTION B: CRITERIA FOR WHICH SCORES MAY BE AWARDED}
+
+\setlength{\LTleft}{0pt}\setlength{\LTright}{0pt}
+\begin{longtable}{|P{3cm}|P{6.2cm}|P{5.6cm}|}
+\hline
+\textbf{Criteria} & \textbf{Number and description of item} & \markpos{tcol:s}\textbf{Score}\\ \hline
+\endhead
+Qualification & (a) Degrees\newline (b) Diplomas \& Professional Qualifications & \\ \hline
+Teaching and Professional Experience & (i) Teaching\newline (a) Number of Lecturers per Week \field{TB.lectures}{2.5cm}\newline (b) Number of Tutorials per Week \field{TB.tutorials}{2.5cm}\newline (c) Total No of Hours \field{TB.hours}{2.5cm} & \\ \hline
+ & (ii) Class size & (a) Total No. of Students \field{TB.students}{1cm}\newline (b) No of Students per tutorial Class \field{TB.per_tutorial}{2cm}\\ \hline
+ & (iii) Tutorials & (a) Total No. of meetings \field{TB.meetings}{1cm}\newline (b) Duration of each per Week \field{TB.duration}{1.5cm}\newline (c) Total No. of Hours per week\\ \hline
+ & (iv) Assignments given and corrected & a. \field{TB.assign1}{3.5cm}\newline b. \field{TB.assign2}{3.5cm}\newline c. \field{TB.assign3}{3.5cm}\newline d. \field{TB.assign4}{3.5cm}\\ \hline
+Publications & & \\ \hline
+Conferences & & \\ \hline
+Administrative Experience & & University Committee Service to relevant outside bodies\\ \hline
+ & Total Score & \\ \hline
+\end{longtable}
+
+Signature of the Scorer: \field{TB.scorer_sig}{5cm}
+
+Name and rank: \field{TB.scorer_name}{5.8cm}
+
+Date: \field{TB.scorer_date}{7.2cm}
+
+\textbf{SECTION C}\\
+\textbf{COMMENTS BY THE CANDIDATE}\\
+I certify that I have seen the contents of this report and that my Head of Department had discussed them with me. I have the following comment(s) to make:
+\fillline{TC.l1}\fillline{TC.l2}\fillline{TC.l3}\fillline{TC.l4}
+\signoff{TC.date}{Date}{TC.signature}{Signature of Candidate}
+\vspace{0.8em}
+\signright{TC.name}{Name of Candidate}
+
+\textbf{SECTION D}\\
+\textbf{COMMENTS BY THE HEAD OF DEPARTMENT/CO-ORDINATOR}
+\itemlist
+\item[(a)] Punctuality and Regularity to Classes
+\end{description}
+\fillline{TD.a1}\fillline{TD.a2}
+\itemlist
+\item[(b)] Evaluation of Overall Teaching Ability and Resourcefulness
+\end{description}
+\fillline{TD.b1}\fillline{TD.b2}
+
+Signature of Head/Coordinator: \field{TD.signature}{5cm}
+
+Name/Rank: \field{TD.name}{8cm}
+
+Date: \field{TD.date}{9cm}
+
+\textbf{SECTION E}\\
+\textbf{FINAL RECOMMENDATION}
+
+(I)\quad Promote \field{TE.promote}{3cm}\quad (ii) Normal Increment \field{TE.increment}{3.5cm}
+
+(iii)\quad Warning \field{TE.warning}{3cm}\quad (iv) Withhold Increment \field{TE.withhold}{3.5cm}
+
+Signature of Dean/Director: \field{TE.signature}{5cm}
+
+Name: \field{TE.name}{8.5cm}
+
+Date: \field{TE.date}{9cm}
+\markpos{form:tsap:end}
+
+\end{document}

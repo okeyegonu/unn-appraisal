@@ -1,0 +1,11 @@
+{
+  "name": "UNN Academic Staff Appraisal",
+  "short_name": "UNN Appraisal",
+  "description": "Prepare a University of Nigeria academic staff appraisal under the Yellow Book: score it, check it, and download the filled forms with every document as a booklet.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f5f6f4",
+  "theme_color": "#0b5d3b",
+  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml" }]
+}
