@@ -14,7 +14,8 @@ import {
 } from '../dossier.js';
 import { Store, BlobStore, requestPersistence, makeBackup, readBackup } from '../storage.js';
 import { sniffType } from '../booklet/exhibits.js';
-import { LISTS, STEPS, sessions } from './schema.js';
+import { LISTS, STEPS } from './schema.js';
+import { parseSession, sessionLabel, sessionSpan, SESSION_HINT } from '../sessions.js';
 import { h, clear, toast, download } from './dom.js';
 import { renderRun } from './run.js';
 import { renderBookletStep } from './bookletui.js';
@@ -170,8 +171,7 @@ function candidateStep() {
         h('div', { class: 'field' }, h('label', { for: 't-cadre' }, 'Cadre'), select('t-cadre', d.track.cadre, Object.entries(CADRES).map(([k, v]) => [k, `${v.label} (Table ${v.table})`]), (ev) => {
           commit({ ...dossier, track: { ...dossier.track, cadre: ev.target.value, current_level: null, target_level: null } }); renderMain();
         })),
-        h('div', { class: 'field' }, h('label', { for: 't-year' }, 'Appraisal year'), select('t-year', d.track.appraisal_year == null ? '' : String(d.track.appraisal_year),
-          [['', 'Choose'], ...Array.from({ length: 8 }, (_, i) => { const y = new Date().getFullYear() + 1 - i; return [String(y), `${y}/${y + 1} (1 Oct ${y} – 30 Sep ${y + 1})`]; })], setT('appraisal_year', (v) => (v === '' ? null : Number(v))))),
+        appraisalYearField(),
         h('div', { class: 'field' }, h('label', { for: 't-mode' }, 'This is'), select('t-mode', d.track.mode, [['promotion', 'Promotion'], ['appointment', 'Appointment or regularisation']], setT('mode'))),
       ),
       h('h2', {}, 'Choose the promotion you are seeking'),
@@ -189,6 +189,38 @@ function candidateStep() {
       h('h2', {}, 'Letter of your last promotion or appointment'),
       slotsView(null, null, { evidence: dossier.evidence }, ['promotion_letter'])),
   );
+}
+
+/**
+ * The appraisal year, typed by hand: "2025/2026" or "2025". The line beneath spells out
+ * the session it names; leaving the field completes "2025" to "2025/2026". What is typed
+ * is kept in the session until it is a valid session, so a half-typed year survives a
+ * reload without touching the record.
+ */
+function appraisalYearField() {
+  session.drafts ||= {};
+  const saved = dossier.track.appraisal_year;
+  const shown = session.drafts['track.appraisal_year'] ?? sessionLabel(saved);
+  const note = h('span', { class: 'help', 'aria-live': 'polite' });
+  const describe = (text) => {
+    const p = parseSession(text);
+    note.className = p.error ? 'help msg bad' : 'help';
+    note.textContent = p.year ? `The appraisal year runs from ${sessionSpan(p.year)}.` : p.error ? p.error : SESSION_HINT;
+  };
+  const input = h('input', {
+    id: 't-year', type: 'text', value: shown, inputmode: 'text', autocomplete: 'off', placeholder: '2025/2026',
+    oninput: (ev) => {
+      const p = parseSession(ev.target.value);
+      describe(ev.target.value);
+      if (p.year) { delete session.drafts['track.appraisal_year']; if (p.year !== dossier.track.appraisal_year) commit({ ...dossier, track: { ...dossier.track, appraisal_year: p.year } }); }
+      else if (p.empty) { delete session.drafts['track.appraisal_year']; if (dossier.track.appraisal_year != null) commit({ ...dossier, track: { ...dossier.track, appraisal_year: null } }); }
+      else session.drafts['track.appraisal_year'] = ev.target.value;
+      saveSessionSoon();
+    },
+    onblur: (ev) => { const p = parseSession(ev.target.value); if (p.year) ev.target.value = sessionLabel(p.year); },
+  });
+  describe(shown);
+  return h('div', { class: 'field' }, h('label', { for: 't-year' }, 'Appraisal year (session)'), input, note);
 }
 
 function select(id, value, pairs, onchange) {
@@ -256,6 +288,11 @@ function entryForm(list, onSaved, rerender) {
   renderFields();
 
   const save = () => {
+    for (const f of spec.fields) {
+      if (f.type !== 'session' || !isVisible(f)) continue;
+      const p = parseSession(typeof draft[f.key] === 'number' ? sessionLabel(draft[f.key]) : draft[f.key]);
+      if (p.error) { msg.className = 'msg bad'; msg.textContent = `${labelOf(f)}: ${p.error}.`; return; }
+    }
     const entry = toEntry(spec, draft);
     const res = editId ? updateEntry(dossier, list, editId, entry) : addEntry(dossier, list, entry);
     if (res.refused) {
@@ -302,7 +339,8 @@ function toEntry(spec, draft) {
     if (f.type === 'number') out[f.key] = v === '' || v == null ? null : Number(v);
     else if (f.type === 'check') out[f.key] = Boolean(v);
     else if (f.type === 'checks') out[f.key] = { ...(v || {}) };
-    else if (f.type === 'select' && ['session', 'from_session', 'to_session', 'level', 'month'].includes(f.key)) out[f.key] = v === '' || v == null ? null : Number(v);
+    else if (f.type === 'session') out[f.key] = typeof v === 'number' ? v : (parseSession(v).year ?? null);
+    else if (f.type === 'select' && ['level', 'month'].includes(f.key)) out[f.key] = v === '' || v == null ? null : Number(v);
     else out[f.key] = v ?? '';
   }
   return out;
@@ -334,6 +372,22 @@ function fieldView(f, draft, label, set) {
       h('input', { type: 'checkbox', checked: Boolean(val[c.value]), onchange: (ev) => { val[c.value] = ev.target.checked; set({ ...val }, redraw); } }), c.label)));
     wrap.append(h('span', { class: 'label' }, label), input);
     if (f.help) wrap.append(h('span', { class: 'help' }, f.help));
+    return wrap;
+  } else if (f.type === 'session') {
+    const shown = typeof cur === 'number' ? sessionLabel(cur) : (cur ?? '');
+    const note = h('span', { class: 'help', 'aria-live': 'polite' });
+    const describe = (text) => {
+      const p = parseSession(text);
+      note.className = p.error ? 'help msg bad' : 'help';
+      note.textContent = p.year ? sessionSpan(p.year) : p.error ? p.error : (f.help || SESSION_HINT);
+    };
+    input = h('input', {
+      id, type: 'text', value: shown, required: f.required, inputmode: 'text', autocomplete: 'off', placeholder: '2025/2026',
+      oninput: (ev) => { describe(ev.target.value); set(ev.target.value); },
+      onblur: (ev) => { const p = parseSession(ev.target.value); if (p.year) { ev.target.value = sessionLabel(p.year); set(ev.target.value); } },
+    });
+    describe(shown);
+    wrap.append(lab, input, note);
     return wrap;
   } else if (f.type === 'textarea') {
     input = h('textarea', { id, required: f.required, oninput: (ev) => set(ev.target.value) }, cur ?? '');

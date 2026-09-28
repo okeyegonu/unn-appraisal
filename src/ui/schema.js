@@ -14,13 +14,6 @@ const opts = (obj, label = (v) => v.label ?? v) => Object.entries(obj).map(([val
 export const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
   .map((m, i) => ({ value: String(i + 1), label: m }));
 
-/** Sessions offered in the dropdowns: 1980/1981 to the appraisal year. */
-export function sessions(d) {
-  const last = Number.isInteger(d.track.appraisal_year) ? d.track.appraisal_year : new Date().getFullYear();
-  const out = [];
-  for (let y = last; y >= 1980; y--) out.push({ value: String(y), label: `${y}/${y + 1}` });
-  return out;
-}
 export const rankOptions = (d) => CADRES[d.track.cadre].ranks.map((r, i) => ({ value: String(i), label: r }));
 
 const group = (t) => ITEM_TYPES[t]?.group;
@@ -40,7 +33,8 @@ export const ITEM_TYPE_GROUPS = [
 ];
 
 /**
- * Field kinds: text | number | date | select | check | checks | textarea.
+ * Field kinds: text | number | date | select | check | checks | textarea | session
+ * (a session typed by hand, e.g. 2025/2026; see src/sessions.js).
  * `show(entry, dossier)` hides a field that does not apply; `help` is shown under it.
  */
 export const LISTS = {
@@ -120,7 +114,7 @@ export const LISTS = {
     title: 'Teaching years', noun: 'year', step: 'teaching', section: 'B3',
     intro: "One entry per academic session. A full-time teaching year scores 5, 4, 3 or 2 points by the rank you held that year, times the students' course-evaluation score (Table 16). An evaluation below 50% in the appraisal year denies promotion that year.",
     fields: [
-      { key: 'session', label: 'Session', type: 'select', required: true, options: (d) => sessions(d) },
+      { key: 'session', label: 'Session', type: 'session', required: true },
       { key: 'kind', label: 'What the year was', type: 'select', required: true, options: opts(TEACHING_KINDS) },
       { key: 'level', label: 'Rank held that year', type: 'select', options: (d) => rankOptions(d), blank: 'Choose' },
       { key: 'post', label: 'Post (as it should appear on the form)', type: 'text', show: (e) => e.kind === 'fulltime' },
@@ -188,7 +182,7 @@ export const LISTS = {
       { key: 'title', label: 'Conference or workshop', type: 'text', required: true },
       { key: 'place', label: 'Place', type: 'text' },
       { key: 'date', label: 'Date', type: 'date' },
-      { key: 'session', label: 'Session', type: 'select', required: true, options: (d) => sessions(d) },
+      { key: 'session', label: 'Session', type: 'session', required: true },
       { key: 'level', label: 'Your rank at the time', type: 'select', options: (d) => rankOptions(d), blank: 'Choose' },
       { key: 'paper_read', label: 'I read a paper', type: 'check' },
       { key: 'paper_title', label: 'Title of the paper', type: 'text', show: (e) => e.paper_read },
@@ -205,8 +199,8 @@ export const LISTS = {
       { key: 'scope', label: 'Committee of', type: 'select', show: (e) => e.kind === 'committee', options: [{ value: 'faculty', label: 'Department or Faculty (elective standing committee)' }, { value: 'university', label: 'The University' }] },
       { key: 'body', label: (e) => (e.kind === 'headship' ? 'Department, Faculty, Institute or Unit' : e.kind === 'committee' ? 'Committee' : 'Body'), type: 'text', required: true },
       { key: 'position', label: 'Nature of the assignment', type: 'text', show: (e) => e.kind === 'outside_body' || e.kind === 'community' },
-      { key: 'from_session', label: 'From session', type: 'select', required: true, options: (d) => sessions(d) },
-      { key: 'to_session', label: 'To session', type: 'select', options: (d) => sessions(d), blank: 'To date' },
+      { key: 'from_session', label: 'From session', type: 'session', required: true },
+      { key: 'to_session', label: 'To session', type: 'session', help: 'Leave empty if you still hold it.' },
     ],
     summary: (e) => `${e.office}${e.body ? `, ${e.body}` : ''} · ${e.from_session}/${e.from_session + 1} – ${e.to_session != null ? `${e.to_session}/${e.to_session + 1}` : 'date'}`,
     slots: () => ['appointment_letter'],

@@ -91,13 +91,14 @@ export function validateEntry(list, e) {
     case 'qualifications':
       return need(e.kind, 'Choose the qualification') ?? need(norm(e.title), 'Give the name of the qualification');
     case 'teaching':
-      return need(Number.isInteger(Number(e.session)), 'Choose the session') ?? need(e.kind, 'Choose what the year was')
+      return need(Number.isInteger(e.session ?? NaN) || /^\d+$/.test(String(e.session ?? '')), 'Type the session, e.g. 2025/2026') ?? need(e.kind, 'Choose what the year was')
         ?? need(e.evaluation_pct === '' || e.evaluation_pct == null || (Number(e.evaluation_pct) >= 0 && Number(e.evaluation_pct) <= 100),
           'The evaluation score is a percentage from 0 to 100');
     case 'conferences':
-      return need(norm(e.title), 'Give the conference') ?? need(Number.isInteger(Number(e.session)), 'Choose the session');
+      return need(norm(e.title), 'Give the conference') ?? need(Number.isInteger(e.session ?? NaN) || /^\d+$/.test(String(e.session ?? '')), 'Type the session, e.g. 2025/2026');
     case 'admin':
-      return need(e.kind, 'Choose the kind of service') ?? need(Number.isInteger(Number(e.from_session)), 'Choose the session it began');
+      return need(e.kind, 'Choose the kind of service') ?? need(Number.isInteger(Number(e.from_session)) && e.from_session !== null && e.from_session !== '', 'Type the session it began, e.g. 2021/2022')
+        ?? need(e.to_session == null || e.to_session === '' || Number(e.to_session) >= Number(e.from_session), 'The session it ended cannot come before the session it began');
     default:
       return null;
   }

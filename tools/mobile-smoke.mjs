@@ -28,7 +28,7 @@ try {
     await s.exec(`localStorage.clear(); document.open(); document.write('<body style="margin:0;background:#888"><iframe src="${APP}" style="border:0;width:${phone.width}px;height:${phone.height}px;background:#fff"></iframe></body>'); document.close();`);
     await s.waitFor(`document.querySelector('iframe') && document.querySelector('iframe').contentDocument && document.querySelector('iframe').contentDocument.querySelector('main h1')`, 'the framed app');
     check('the app sees a phone-width viewport', (await f('return window.innerWidth')) === phone.width, String(await f('return window.innerWidth')));
-    await f(`const y = document.getElementById('t-year'); y.value = '2025'; y.dispatchEvent(new Event('change', { bubbles: true }));`);
+    await f(`const y = document.getElementById('t-year'); y.value = '2025/2026'; y.dispatchEvent(new Event('input', { bubbles: true }));`);
     await settle();
     await f(`[...document.querySelectorAll('.track input')][2].click();`);
     await settle();

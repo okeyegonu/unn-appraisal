@@ -95,7 +95,12 @@ try {
   await s.waitFor('document.querySelector("main h1")', 'the app');
   console.log('\nCandidate and track');
   await t(`__t.type('Name', 'Adaeze Ọkọnkwọ'); __t.type('Staff No', 'UNN/0001'); __t.type('Department', 'Mechanical Engineering'); __t.type('Faculty', 'Engineering');`);
-  await t(`const y = __t.field('Appraisal year'); y.value = '2025'; y.dispatchEvent(new Event('change', { bubbles: true }));`);
+  check('tab 1 shows a greyed 2025/2026 in the empty session field', (await t(`return __t.field('Appraisal year').placeholder`)) === '2025/2026');
+  await t(`__t.type('Appraisal year', '2025/26')`);
+  check('the abbreviation is refused by name', /Write the session in full: 2025\/2026/.test(await t(`return __t.field('Appraisal year').parentElement.querySelector('.help').textContent`)));
+  check('and not recorded', JSON.parse(await t('return __t.record()') || '{}').track?.appraisal_year == null);
+  await t(`__t.type('Appraisal year', '2025/2026')`);
+  check('a typed session is spelt out', /1 October 2025 to 30 September 2026/.test(await t(`return __t.field('Appraisal year').parentElement.querySelector('.help').textContent`)));
   await settle();
   await t(`[...document.querySelectorAll('.track')].find((x) => x.textContent.startsWith('Lecturer I → Senior Lecturer')).querySelector('input').click();`);
   await settle();
@@ -182,10 +187,9 @@ try {
   await t(`__t.step('Teaching')`);
   await settle();
   for (const [sess, lvl, ev] of [[2021, 2, 80], [2022, 2, 82], [2023, 2, 85], [2024, 2, 84], [2025, 2, 86], [2016, 1, 75], [2017, 1, 75], [2018, 1, 75], [2019, 1, 75], [2020, 1, 75]]) {
-    await t(`const f = __t.form('Teaching years'); const [se, ki, le] = f.querySelectorAll('select');
-      se.value='${sess}'; se.dispatchEvent(new Event('change',{bubbles:true})); ki.value='fulltime'; ki.dispatchEvent(new Event('change',{bubbles:true}));`);
+    await t(`const f = __t.form('Teaching years'); __t.type('Session', '${sess}/${sess + 1}', f); const ki = f.querySelectorAll('select')[0]; ki.value='fulltime'; ki.dispatchEvent(new Event('change',{bubbles:true}));`);
     await settle(80);
-    await t(`const f = __t.form('Teaching years'); const le = f.querySelectorAll('select')[2]; le.value='${lvl}'; le.dispatchEvent(new Event('change',{bubbles:true}));
+    await t(`const f = __t.form('Teaching years'); const le = f.querySelectorAll('select')[1]; le.value='${lvl}'; le.dispatchEvent(new Event('change',{bubbles:true}));
       __t.type("Students' course-evaluation score", '${ev}', f); __t.button('Add year', f);`);
     await settle(120);
   }
@@ -194,8 +198,8 @@ try {
   await settle();
   for (const [n, sess] of [[1, 2021], [2, 2022], [3, 2022], [4, 2023], [5, 2024]]) {
     await t(`const f = __t.form('Conferences'); __t.type('Conference or workshop', 'NIMechE meeting ${n}', f);
-      const se = f.querySelectorAll('select')[0]; se.value='${sess}'; se.dispatchEvent(new Event('change',{bubbles:true}));
-      const le = f.querySelectorAll('select')[1]; le.value='2'; le.dispatchEvent(new Event('change',{bubbles:true}));
+      __t.type('Session', '${sess}', f);
+      const le = f.querySelectorAll('select')[0]; le.value='2'; le.dispatchEvent(new Event('change',{bubbles:true}));
       [...f.querySelectorAll('label.check')].find((l) => l.textContent.startsWith('I read')).querySelector('input').click();`);
     await settle(80);
     await t(`__t.button('Add conference', __t.form('Conferences'))`);
@@ -208,9 +212,9 @@ try {
   await settle(100);
   const offices = await t(`return [...__t.form('Administrative').querySelectorAll('select')[1].options].map((o) => o.value).filter(Boolean)`);
   check('offices are a dropdown fitted to the kind of service', offices.join(',') === 'Chairman,Secretary,Member', offices.join(','));
-  await t(`const f = __t.form('Administrative'); const [k, o, sc, fr] = f.querySelectorAll('select');
+  await t(`const f = __t.form('Administrative'); const [k, o, sc] = f.querySelectorAll('select');
     o.value='Member'; o.dispatchEvent(new Event('change',{bubbles:true})); sc.value='faculty'; sc.dispatchEvent(new Event('change',{bubbles:true}));
-    fr.value='2021'; fr.dispatchEvent(new Event('change',{bubbles:true})); __t.type('Committee', 'Departmental Examinations Committee', f);`);
+    __t.type('From session', '2021/2022', f); __t.type('Committee', 'Departmental Examinations Committee', f);`);
   await settle(80);
   await t(`__t.button('Add office', __t.form('Administrative'))`);
   await settle();

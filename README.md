@@ -152,6 +152,25 @@ No repeated action makes anything grow, and the same inputs always give the same
 `npm test` checks all of this in Node, and `npm run smoke` checks it again in a real
 Firefox.
 
+## Sessions
+
+Every academic session is typed, not chosen from a list, so no year is out of reach. This
+covers:
+
+* the appraisal year (tab 1);
+* teaching years (tab 5);
+* conferences (tab 6);
+* administrative offices (tab 7).
+
+Rules for a typed session:
+
+* **Accepted:** the full form (`2025/2026`), or the opening year (`2025`). The opening
+  year is completed to the full form when the field is left.
+* **Refused by name:** the abbreviation `2025/26`.
+* **Spelt out:** the line beneath the field gives the session's span, "1 October 2025 to
+  30 September 2026" (Ch. 3 §2(a)(i)).
+* **After the appraisal year:** teaching years and conferences are not counted.
+
 ## Stopping and resuming
 
 Everything is saved on the device as it is typed. A half-filled entry is kept as a draft
@@ -178,7 +197,7 @@ the same Wi-Fi.
 
 ```bash
 npm install                 # the libraries, for the tests (the site itself uses vendor/)
-npm test                    # engine, record, booklet: 54 tests
+npm test                    # engine, record, sessions, booklet: 60 tests
 geckodriver --port 4444 &   # for the browser suites
 ./serve.sh 8000 &
 npm run smoke               # a candidate from an empty device to a downloaded booklet

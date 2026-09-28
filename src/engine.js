@@ -277,6 +277,10 @@ function scoreTeaching(d, cadre, level, bound, rd) {
   const missingEvaluations = [];
   for (const y of (d.teaching || []).slice().sort((a, b) => a.session - b.session || (a.id < b.id ? -1 : 1))) {
     if (!inWindow(y.session, d, rd)) continue;
+    if (y.session > Number(d.track.appraisal_year)) {
+      lines.push({ text: `${y.session}/${y.session + 1}: after the appraisal year, not counted`, ref: 'Ch. 3 §2(a)(i)' });
+      continue;
+    }
     const lv = Number.isInteger(y.level) ? y.level : level;
     if (y.kind === 'fulltime') {
       let e = y.evaluation_pct;
@@ -312,6 +316,7 @@ function scoreConferences(d, level, bound, rd) {
   const lines = [];
   for (const c of (d.conferences || []).slice().sort((a, b) => a.session - b.session || (a.id < b.id ? -1 : 1))) {
     if (!inWindow(c.session, d, rd) || !c.paper_read) continue;
+    if (c.session > Number(d.track.appraisal_year)) continue; // after the appraisal year (Ch. 3 §2(a)(i))
     const lv = Number.isInteger(c.level) ? c.level : level;
     const { each, perYear } = conferencePoints(lv);
     const got = bySession[c.session] || 0;

@@ -156,3 +156,5 @@ textarea { min-height: 64px; resize: vertical; }
   .card { padding: 12px; }
 }
 @media print { .top, .steps, .foot, .toast { display: none; } }
+/* The greyed example in an empty field (e.g. 2025/2026 in a session): clearly a hint, never an entry. */
+input::placeholder, textarea::placeholder { color: #9aa1a9; opacity: 1; }
