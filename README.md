@@ -145,7 +145,8 @@ No repeated action makes anything grow, and the same inputs always give the same
   * dates are fixed to the appraisal year;
   * fonts are embedded under fixed names;
   * pdf-lib's random resource names are replaced by a counter;
-  * the Word packer runs on a frozen clock.
+  * the Word file's document dates are written by the app, and its zip timestamps are
+    rewritten afterwards.
 * **The fingerprint:** the cover prints a fingerprint of the dossier, the SHA-256 of its
   canonical JSON.
 
