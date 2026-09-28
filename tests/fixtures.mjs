@@ -31,7 +31,7 @@ export function lecturerOneToSenior() {
   ];
   return {
     schema_version: 1,
-    candidate: { name: 'Adaeze Ọkọnkwọ', staff_no: 'UNN/0001', department: 'Mechanical Engineering', faculty: 'Engineering' },
+    candidate: { name: 'Adaeze Ọkọnkwọ', staff_no: 'SS.0001', department: 'Mechanical Engineering', faculty: 'Engineering' },
     track: {
       cadre: 'lecturing', current_level: 2, target_level: 3, mode: 'promotion', appraisal_year: 2025,
       last_promotion_date: '2021-10-01', post_start_date: '2021-10-01', nigerian_languages: false, discipline: 'general',

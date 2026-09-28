@@ -94,7 +94,15 @@ try {
   await s.go(APP);
   await s.waitFor('document.querySelector("main h1")', 'the app');
   console.log('\nCandidate and track');
-  await t(`__t.type('Name', 'Adaeze Ọkọnkwọ'); __t.type('Staff No', 'UNN/0001'); __t.type('Department', 'Mechanical Engineering'); __t.type('Faculty', 'Engineering');`);
+  await t(`__t.type('Name', 'Adaeze Ọkọnkwọ'); __t.type('Department', 'Mechanical Engineering'); __t.type('Faculty', 'Engineering');`);
+  check('tab 1 shows a greyed SS.XXXX in the empty Staff No field', (await t(`return __t.field('Staff No').placeholder`)) === 'SS.XXXX');
+  await t(`__t.type('Staff No', 'UNN/0001')`);
+  check('a staff number not in the form SS.X is refused, and says how', /Begin with SS\./.test(await t(`return __t.field('Staff No').parentElement.querySelector('.help').textContent`))
+    && JSON.parse(await t('return __t.record()') || '{}').candidate?.staff_no !== 'UNN/0001');
+  await t(`__t.type('Staff No', 'SS.1234567890123')`);
+  check('more than 12 digits is refused', /At most 12 digits/.test(await t(`return __t.field('Staff No').parentElement.querySelector('.help').textContent`)));
+  await t(`const f = __t.field('Staff No'); f.value = 'ss 0001'; f.dispatchEvent(new Event('input', { bubbles: true })); f.dispatchEvent(new Event('blur'));`);
+  check('"ss 0001" is completed to SS.0001', (await t(`return __t.field('Staff No').value`)) === 'SS.0001' && JSON.parse(await t('return __t.record()')).candidate.staff_no === 'SS.0001');
   check('tab 1 shows a greyed 2025/2026 in the empty session field', (await t(`return __t.field('Appraisal year').placeholder`)) === '2025/2026');
   await t(`__t.type('Appraisal year', '2025/26')`);
   check('the abbreviation is refused by name', /Write the session in full: 2025\/2026/.test(await t(`return __t.field('Appraisal year').parentElement.querySelector('.help').textContent`)));

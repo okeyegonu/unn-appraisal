@@ -172,6 +172,19 @@ Rules for a typed session:
   30 September 2026" (Ch. 3 §2(a)(i)).
 * **After the appraisal year:** teaching years and conferences are not counted.
 
+## Staff number
+
+The Staff No takes one form: `SS.` followed by 1 to 12 digits, from `SS.X` to
+`SS.XXXXXXXXXXXX`, where X is any digit from 0 to 9.
+
+* **The empty field** shows a greyed `SS.XXXX`.
+* **Small slips are completed** when the field is left: `ss.12345`, `SS12345` and
+  `12345` all become `SS.12345`. Leading zeros are kept.
+* **Anything else is refused**, with the reason: letters after the dot, more than 12
+  digits, or `SS.` with no digits.
+* **Saving:** the number is saved only once it is valid. A staff number in any other form,
+  read back from an old backup, is dropped.
+
 ## Stopping and resuming
 
 Everything is saved on the device as it is typed. A half-filled entry is kept as a draft
@@ -198,7 +211,7 @@ the same Wi-Fi.
 
 ```bash
 npm install                 # the libraries, for the tests (the site itself uses vendor/)
-npm test                    # engine, record, sessions, booklet: 60 tests
+npm test                    # engine, record, sessions, staff number, booklet: 64 tests
 geckodriver --port 4444 &   # for the browser suites
 ./serve.sh 8000 &
 npm run smoke               # a candidate from an empty device to a downloaded booklet

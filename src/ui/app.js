@@ -16,6 +16,7 @@ import { Store, BlobStore, requestPersistence, makeBackup, readBackup } from '..
 import { sniffType } from '../booklet/exhibits.js';
 import { LISTS, STEPS } from './schema.js';
 import { parseSession, sessionLabel, sessionSpan, SESSION_HINT } from '../sessions.js';
+import { parseStaffNo, STAFF_NO_EXAMPLE, STAFF_NO_HINT } from '../staffno.js';
 import { h, clear, toast, download } from './dom.js';
 import { renderRun } from './run.js';
 import { renderBookletStep } from './bookletui.js';
@@ -161,7 +162,7 @@ function candidateStep() {
     h('div', { class: 'card' }, h('h2', { style: 'margin-top:0' }, 'Section A: general information'),
       h('div', { class: 'grid' },
         text('Name (as it should appear on the form)', 'name', { autocomplete: 'name' }),
-        text('Staff No', 'staff_no'),
+        staffNoField(),
         h('div', { class: 'field' }, h('label', { for: 'c-dob' }, 'Date of birth'), h('input', { id: 'c-dob', type: 'date', value: d.candidate.dob, oninput: setC('dob') })),
         h('div', { class: 'field' }, h('label', { for: 'c-marital' }, 'Marital status'), select('c-marital', d.candidate.marital, [['', 'Choose'], ['Single', 'Single'], ['Married', 'Married'], ['Widowed', 'Widowed'], ['Divorced', 'Divorced'], ['Separated', 'Separated']], setC('marital'))),
         h('div', { class: 'field' }, h('label', { for: 'c-sex' }, 'Sex'), select('c-sex', d.candidate.sex, [['', 'Choose'], ['Female', 'Female'], ['Male', 'Male']], setC('sex'))),
@@ -189,6 +190,41 @@ function candidateStep() {
       h('h2', {}, 'Letter of your last promotion or appointment'),
       slotsView(null, null, { evidence: dossier.evidence }, ['promotion_letter'])),
   );
+}
+
+/**
+ * The staff number: SS. followed by 1 to 12 digits. Saved only once it is valid; what is
+ * typed until then is kept in the session. Leaving the field completes "ss 12345",
+ * "SS12345" or "12345" to "SS.12345".
+ */
+function staffNoField() {
+  session.drafts ||= {};
+  const shown = session.drafts['candidate.staff_no'] ?? dossier.candidate.staff_no;
+  const note = h('span', { class: 'help', 'aria-live': 'polite' });
+  const describe = (text) => {
+    const p = parseStaffNo(text);
+    note.className = p.error ? 'help msg bad' : 'help';
+    note.textContent = p.error ? p.error : STAFF_NO_HINT;
+  };
+  const input = h('input', {
+    id: 'c-staff_no', type: 'text', value: shown, autocomplete: 'off', autocapitalize: 'characters', spellcheck: 'false',
+    placeholder: STAFF_NO_EXAMPLE, maxlength: 20,
+    oninput: (ev) => {
+      const p = parseStaffNo(ev.target.value);
+      describe(ev.target.value);
+      if (p.value || p.empty) {
+        delete session.drafts['candidate.staff_no'];
+        const v = p.value ?? '';
+        if (v !== dossier.candidate.staff_no) commit({ ...dossier, candidate: { ...dossier.candidate, staff_no: v } });
+      } else {
+        session.drafts['candidate.staff_no'] = ev.target.value;
+      }
+      saveSessionSoon();
+    },
+    onblur: (ev) => { const p = parseStaffNo(ev.target.value); if (p.value) ev.target.value = p.value; },
+  });
+  describe(shown);
+  return h('div', { class: 'field' }, h('label', { for: 'c-staff_no' }, 'Staff No'), input, note);
 }
 
 /**

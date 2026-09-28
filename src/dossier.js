@@ -17,6 +17,7 @@
  * with sorted keys, so load -> save is a fixed point, byte for byte.
  */
 import { CADRES, ITEM_TYPES, TABLE_2, QUALIFICATION_TABLE_FOR, EVIDENCE } from './rulebook.js';
+import { parseStaffNo } from './staffno.js';
 
 export const SCHEMA_VERSION = 1;
 export const APP_ID = 'unn-appraisal';
@@ -262,6 +263,8 @@ export function normalize(raw) {
   const d = emptyDossier();
   if (!raw || typeof raw !== 'object') return d;
   for (const k of Object.keys(d.candidate)) d.candidate[k] = str(raw.candidate?.[k], 200);
+  // The staff number is SS. and 1 to 12 digits; anything else read back is dropped.
+  d.candidate.staff_no = parseStaffNo(d.candidate.staff_no).value ?? '';
   const t = raw.track || {};
   d.track.cadre = CADRES[t.cadre] ? t.cadre : 'lecturing';
   d.track.current_level = [0, 1, 2, 3, 4, 5].includes(t.current_level) ? t.current_level : null;
