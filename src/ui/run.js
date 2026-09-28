@@ -44,8 +44,18 @@ export function renderRun(dossier, go) {
   const wrap = h('div', {});
   wrap.append(h('h1', {}, 'Appraisal'), h('p', { class: 'lede' }, 'Runs your dossier through the Yellow Book, rank by rank and check by check. It changes nothing: run it as often as you like.'));
   const a = assess(dossier);
-  if (a.outcome === 'no_track') {
-    wrap.append(h('div', { class: 'verdict-q' }, h('p', {}, 'Choose your track first.'), h('button', { type: 'button', onclick: () => go('candidate') }, 'Choose the track')));
+  // The button is always shown; it waits, greyed, until tab 1 has what the run needs.
+  const needs = [];
+  if (a.outcome === 'no_track') needs.push('your track (the promotion you are seeking)');
+  if (!Number.isInteger(dossier.track.appraisal_year)) needs.push('the appraisal year, e.g. 2025/2026');
+  if (needs.length) {
+    wrap.append(h('div', { class: 'card' },
+      h('div', { class: 'bar', 'aria-hidden': 'true' }, h('div', {})),
+      h('div', { class: 'actions' }, h('button', { type: 'button', disabled: true, 'aria-describedby': 'run-needs' }, 'Run the appraisal')),
+      h('div', { class: 'verdict-q', id: 'run-needs' },
+        h('p', { style: 'margin-top:0' }, 'The button works once tab 1 (Candidate and track) has:'),
+        h('ul', {}, ...needs.map((n) => h('li', {}, n))),
+        h('button', { type: 'button', class: 'secondary', onclick: () => go('candidate') }, 'Go to tab 1'))));
     return wrap;
   }
   const path = a.track.kind === 'double' ? [a.track.from, a.track.via, a.track.to] : [a.track.from, a.track.to];

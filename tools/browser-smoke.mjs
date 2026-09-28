@@ -93,6 +93,14 @@ try {
   await s.exec('localStorage.clear(); indexedDB.deleteDatabase("unn-appraisal-files");');
   await s.go(APP);
   await s.waitFor('document.querySelector("main h1")', 'the app');
+  console.log('\nThe appraisal tab before anything is entered');
+  await t(`__t.step('Appraisal')`);
+  await settle();
+  const idle = await s.exec(`const b = [...document.querySelectorAll('main button')].find((x) => x.textContent === 'Run the appraisal'); return { shown: Boolean(b), disabled: b && b.disabled, note: document.getElementById('run-needs')?.textContent || '' }`);
+  check('tab 8 shows the Run button, greyed, before a track is chosen', idle.shown && idle.disabled);
+  check('and says what tab 1 still needs', /your track/.test(idle.note) && /appraisal year/.test(idle.note));
+  await t(`__t.step('Candidate')`);
+  await settle();
   console.log('\nCandidate and track');
   await t(`__t.type('Name', 'Adaeze Ọkọnkwọ'); __t.type('Department', 'Mechanical Engineering'); __t.type('Faculty', 'Engineering');`);
   check('tab 1 shows a greyed SS.XXXX in the empty Staff No field', (await t(`return __t.field('Staff No').placeholder`)) === 'SS.XXXX');
