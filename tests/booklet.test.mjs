@@ -94,7 +94,7 @@ test('the working copy adds the self-assessment and the checklist; the submissio
   assert.ok(w.parts.some((p) => p.kind === 'report') && w.parts.some((p) => p.kind === 'checklist'));
 });
 
-test('the PDF renders, every page is US Legal, and generating it twice gives the same bytes', async () => {
+test('the PDF renders, every page is US Legal (portrait, or landscape for the assessment table), and generating it twice gives the same bytes', async () => {
   const { d, blobs } = await dossierWithFiles();
   const plan = planBooklet(d, assess(d), fields, { edition: 'working' });
   const one = await renderPdf(plan, env(blobs));
@@ -103,7 +103,11 @@ test('the PDF renders, every page is US Legal, and generating it twice gives the
   assert.ok(Buffer.from(one.bytes).equals(Buffer.from(two.bytes)), 'byte-identical');
   const back = await PDFLib.PDFDocument.load(one.bytes);
   assert.equal(back.getPageCount(), one.pages);
-  for (const pg of back.getPages()) assert.deepEqual(pg.getSize(), { width: 612, height: 1008 });
+  // Legal: portrait for the forms and documents, landscape for the assessment table.
+  for (const pg of back.getPages()) {
+    const { width, height } = pg.getSize();
+    assert.ok((width === 612 && height === 1008) || (width === 1008 && height === 612), `${width}x${height}`);
+  }
 });
 
 test('a file that cannot be read gives a placeholder page, not a failed booklet', async () => {
@@ -149,6 +153,7 @@ test('the Word edition carries the same parts, and is byte-identical when made t
   const res = await mammoth.extractRawText({ buffer: Buffer.from(one) });
   assert.match(res.value, /B2 PUBLICATIONS AND CREATIVE WORKS/);
   assert.match(res.value, /SELF-ASSESSMENT AGAINST THE YELLOW BOOK/);
+  assert.match(res.value, /ASSESSMENT OF ADAEZE ỌKỌNKWỌ \(FOR SENIOR LECTURER\)/, 'the assessment table, as Word text');
 });
 
 test('tutors get Form TSAP, sandwiched the same way', async () => {
@@ -163,4 +168,65 @@ test('tutors get Form TSAP, sandwiched the same way', async () => {
   assert.ok(cert > first && cert < plan.parts.indexOf(forms[1]), 'the certificate follows the first TSAP page');
   const out = await renderPdf(plan, env(blobs));
   assert.equal(out.problems.length, 0);
+});
+
+test('the assessment table follows the last form page, one row per listed work', async () => {
+  const { d } = await dossierWithFiles();
+  const plan = planBooklet(d, assess(d), fields);
+  const i = plan.parts.findIndex((p) => p.kind === 'assessment');
+  const lastForm = plan.parts.map((p) => p.kind).lastIndexOf('form');
+  assert.equal(i, lastForm + 1);
+  const t = plan.parts[i];
+  assert.equal(t.title, 'ASSESSMENT OF ADAEZE ỌKỌNKWỌ (FOR SENIOR LECTURER)');
+  assert.equal(t.columns.length, 14);
+  assert.equal(t.groups.reduce((n, g) => n + g.rows.length, 0), d.items.filter((x) => x.status === 'published').length);
+  assert.ok(t.groups.every((g) => g.rows.every((r) => r.slice(2).every((c) => c === ''))), "columns 3 to 14 are left for the assessor by default");
+});
+
+test("with estimates, columns 7 to 14 carry the candidate's own reckoning; 3 to 6 stay blank", async () => {
+  const { d } = await dossierWithFiles();
+  const t = planBooklet(d, assess(d), fields, { estimates: true }).parts.find((p) => p.kind === 'assessment');
+  const rows = t.groups.find((g) => g.heading === 'JOURNAL ARTICLES').rows;
+  assert.ok(rows.every((r) => r.slice(2, 6).every((c) => c === '')));
+  assert.ok(rows.some((r) => r[6] === 'Minor'), 'the minor article is marked Minor');
+  const row = rows.find((r) => r[6] === 'Major' && r[0].includes('part 1'));
+  assert.equal(row[7], 'A');
+  assert.equal(row[8], '√');
+  assert.ok(Number(row[13]) > 0);
+  assert.match(t.note, /own estimates/);
+});
+
+test('forms first: every form page, then the table, then the documents in section order', async () => {
+  const { d } = await dossierWithFiles();
+  const plan = planBooklet(d, assess(d), fields, { arrangement: 'forms_first' });
+  const kinds = plan.parts.map((p) => p.kind);
+  const lastForm = kinds.lastIndexOf('form');
+  const firstExhibit = kinds.indexOf('exhibit');
+  assert.ok(lastForm < firstExhibit, 'no document before the last form page');
+  assert.equal(kinds[lastForm + 1], 'assessment');
+  assert.ok(!kinds.includes('divider') && !kinds.includes('list'), 'no dividers; the table stands in for the list');
+  const ids = plan.parts.filter((p) => p.kind === 'exhibit' || p.kind === 'exhibit-ref').map((p) => p.id);
+  assert.ok(ids.indexOf('B1-2') < ids.findIndex((x) => x.startsWith('B2')) && ids.findIndex((x) => x.startsWith('B2')) < ids.indexOf('B4-1'), ids.join(' '));
+});
+
+test('without a cover there is no contents page, and the first page is a form', async () => {
+  const { d, blobs } = await dossierWithFiles();
+  const plan = planBooklet(d, assess(d), fields, { cover: false });
+  assert.equal(plan.parts[0].kind, 'form');
+  assert.ok(!plan.parts.some((p) => p.kind === 'contents'));
+  const out = await renderPdf(plan, env(blobs));
+  const back = await PDFLib.PDFDocument.load(out.bytes);
+  assert.equal(back.getPageCount(), out.pages);
+});
+
+test('original page sizes: each document keeps its own size, and the booklet is still byte-identical', async () => {
+  const { d, blobs } = await dossierWithFiles();
+  const plan = planBooklet(d, assess(d), fields, { pageSizes: 'original', arrangement: 'forms_first' });
+  const one = await renderPdf(plan, env(blobs));
+  const two = await renderPdf(plan, env(blobs));
+  assert.ok(Buffer.from(one.bytes).equals(Buffer.from(two.bytes)));
+  const back = await PDFLib.PDFDocument.load(one.bytes);
+  const at = plan.parts.findIndex((p) => p.kind === 'exhibit');
+  const pg = back.getPage(one.partPages[at].first);
+  assert.deepEqual(pg.getSize(), { width: 595, height: 842 }, 'the sample documents are A4');
 });

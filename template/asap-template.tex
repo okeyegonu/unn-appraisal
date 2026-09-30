@@ -41,7 +41,9 @@
 \makeatletter
 \zref@addprop{savepos}{abspage}
 % \mark@{name}: record a position.
-\newcommand{\markpos}[1]{\zsavepos{#1}}
+% \leavevmode first: a marker at the start of a table cell must sit on the cell's first line,
+% not in the vertical list above it (which also pushed the cell's text down a line).
+\newcommand{\markpos}[1]{\leavevmode\zsavepos{#1}}
 % \field{id}{w}: a fill-in rule of width w, recording where it starts and ends.
 \newcommand{\field}[2]{\markpos{f:#1:s}\rule{#2}{0.4pt}\markpos{f:#1:e}}
 % \cell{id}{w}: an empty table cell of width w that entries are written into.
@@ -77,13 +79,13 @@
 \newcommand{\signoff}[4]{\par\vspace{1.2em}\noindent\hspace*{2.2em}\parbox[t]{5cm}{\centering\field{#1}{5cm}\\#2}\hfill\parbox[t]{6cm}{\centering\field{#3}{6cm}\\#4}\par}
 \newcommand{\signright}[2]{\hfill\parbox[t]{6cm}{\centering\field{#1}{6cm}\\#2}}
 % Section boundaries, so exhibits can be placed behind the page a section ends on.
-\newcommand{\sectionend}[1]{\markpos{s:#1}}
+\newcommand{\sectionend}[1]{\zsavepos{s:#1}}
 \newcommand{\itemlist}{\begin{description}[leftmargin=2.2em,labelwidth=2.2em,labelsep=0pt,font=\normalfont]}
 
 \begin{document}
 
 % ======================================================================= ASAP/1
-\markpos{form:asap1:start}%
+\zsavepos{form:asap1:start}%
 \begin{center}
 {\bfseries\large UNIVERSITY OF NIGERIA, NSUKKA}\\
 ACADEMIC STAFF ASSESSMENT/APPRAISALS FORM\\
@@ -291,11 +293,11 @@ I certify that the department has scrutinized and evaluated the publications and
 
 \bigskip
 This form will be received in duplicate from the candidate's department. After section D had been completed, also in duplicate, a copy should be forwarded to the Deputy Registrar, Personnel Services for staff member's records; while the second copy is kept in the Faculty Office personal file of the staff member concerned. Copies should later be prepared, where appropriate, for transmission to the Appointments and Promotions Committee or to the University Appraisals Committee as may be relevant.
-\markpos{form:asap1:end}
+\zsavepos{form:asap1:end}
 
 % ======================================================================= ASAP/2
 \clearpage
-\markpos{form:asap2:start}%
+\zsavepos{form:asap2:start}%
 \begin{center}
 \textbf{UNIVERSITY OF NIGERIA}\\
 FORM ASAP/2 (ACADEMIC YEAR\field{asap2.year}{2cm})
@@ -351,11 +353,11 @@ Appointment/Promotion in View: \field{asap2.in_view}{9.3cm}
 \noindent Date: \field{asap2.date}{5cm}\signright{asap2.officer}{Name/Rank of Scoring Officer}
 
 \hspace*{2.2em}Note: Head of Department at the Departmental level and Dean at the Faculty level.
-\markpos{form:asap2:end}
+\zsavepos{form:asap2:end}
 
 % ======================================================================= TSAP
 \clearpage
-\markpos{form:tsap:start}%
+\zsavepos{form:tsap:start}%
 \begin{center}
 \textbf{UNIVERSITY OF NIGERIA}\\
 FORM TSAP (ACADEMIC YEAR\field{tsap.year}{2cm})
@@ -459,6 +461,6 @@ Signature of Dean/Director: \field{TE.signature}{5cm}
 Name: \field{TE.name}{8.5cm}
 
 Date: \field{TE.date}{9cm}
-\markpos{form:tsap:end}
+\zsavepos{form:tsap:end}
 
 \end{document}

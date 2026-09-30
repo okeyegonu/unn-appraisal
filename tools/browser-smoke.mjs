@@ -291,6 +291,19 @@ try {
     await t(`__t.step('Qualifications')`); await settle(); await shot('phone-qualifications');
     await s.setWindow(1280, 1400);
   }
+  console.log('\nArrangement choices');
+  await t(`__t.step('Booklet')`);
+  await settle();
+  await s.exec(`[...document.querySelectorAll('main .track')].find((l) => l.textContent.startsWith('Forms first')).querySelector('input').click();
+    [...document.querySelectorAll('main .track')].find((l) => l.textContent.startsWith('Each document at its own size')).querySelector('input').click();`);
+  await settle();
+  const opts = JSON.parse(await t('return __t.record()')).options;
+  check('the choices are saved with the dossier', opts.arrangement === 'forms_first' && opts.page_sizes === 'original', JSON.stringify(opts));
+  await t(`window.__lastBlob = null; __t.button('Download PDF')`);
+  await s.waitFor(`window.__lastBlob && window.__lastBlob.type === 'application/pdf'`, 'the forms-first PDF', 60000);
+  const st2 = await s.exec(`return document.querySelector('main .msg[role=status]').textContent`);
+  check('a forms-first booklet, documents at their own size, downloads', /^Done: \d+ pages\.$/.test(st2), st2);
+
   console.log('\nBackup and restore');
   const rec3 = await t('return __t.record()');
   const backup = await s.execAsync(`const done = arguments[0]; window.__lastBlob = null; document.getElementById('btn-backup').click();

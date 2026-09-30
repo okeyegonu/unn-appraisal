@@ -87,7 +87,7 @@ export function renderBookletStep({ getDossier, commit, blobs, go }) {
   const d = getDossier();
   const wrap = h('div', {});
   wrap.append(h('h1', {}, 'Your booklet'),
-    h('p', { class: 'lede' }, 'The official forms, filled in on their own template, with every document you attached placed directly behind the section it supports. Download it as PDF, or as Word.'));
+    h('p', { class: 'lede' }, 'The official forms, filled in on their own template, the assessment table for your internal assessors, and every document you attached, arranged as you choose below. Download it as PDF, or as Word.'));
   if (!Number.isInteger(d.track.target_level) || !Number.isInteger(d.track.appraisal_year)) {
     wrap.append(h('div', { class: 'verdict-q' }, h('p', {}, 'Choose your track and the appraisal year first.'), h('button', { type: 'button', onclick: () => go('candidate') }, 'Choose the track')));
     return wrap;
@@ -102,8 +102,24 @@ export function renderBookletStep({ getDossier, commit, blobs, go }) {
   let edition = 'submission';
   const opt = (v, label, help) => h('label', { class: 'track' }, h('input', { type: 'radio', name: 'edition', value: v, checked: v === edition, onchange: () => { edition = v; } }),
     h('span', {}, h('span', { style: 'font-weight:600' }, label), h('div', { class: 'hint' }, help)));
-  const scores = h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: d.options.fill_asap2_scores, onchange: (ev) => commit({ ...getDossier(), options: { ...getDossier().options, fill_asap2_scores: ev.target.checked } }) }),
-    'Also write my own scores on Form ASAP/2 (normally left for the Head of Department and the Dean)');
+  const setOpt = (k, v) => commit({ ...getDossier(), options: { ...getDossier().options, [k]: v } });
+  const check = (k, text) => h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: Boolean(d.options[k]), onchange: (ev) => setOpt(k, ev.target.checked) }), text);
+  const choice = (name, k, value, title, help) => h('label', { class: 'track' },
+    h('input', { type: 'radio', name, value, checked: d.options[k] === value, onchange: () => setOpt(k, value) }),
+    h('span', {}, h('span', { style: 'font-weight:600' }, title), h('div', { class: 'hint' }, help)));
+  const scores = h('div', { class: 'checks' },
+    check('fill_asap2_scores', 'Also write my own scores on Form ASAP/2 (normally left for the Head of Department and the Dean)'),
+    check('assessment_estimates', "Also write my own estimates in columns 7 to 14 of the assessment table (major/minor, grade, class, scores); columns 3 to 6 stay for the assessor"),
+    check('cover', 'Begin with a cover page and contents'));
+  const layout = h('div', {},
+    h('h2', {}, 'Arrangement'),
+    h('div', { class: 'tracks' },
+      choice('arrangement', 'arrangement', 'sandwich', 'Sandwiched', 'Each form page, then the documents for the sections that end on it, with a divider for each section.'),
+      choice('arrangement', 'arrangement', 'forms_first', 'Forms first, then documents', 'All the forms and the assessment table, then every document in section order, as dossiers are commonly bound.')),
+    h('h2', {}, 'Page sizes'),
+    h('div', { class: 'tracks' },
+      choice('pages', 'page_sizes', 'fit', 'Fitted, with exhibit bands', 'Every document on a Legal page under a band: exhibit number, kind of document, page i of k.'),
+      choice('pages', 'page_sizes', 'original', 'Each document at its own size', 'A4, Letter or landscape, as the document is, with a small exhibit label in the corner.')));
   const status = h('p', { class: 'msg', role: 'status', 'aria-live': 'polite' });
   const bPdf = h('button', { type: 'button' }, 'Download PDF');
   const bDocx = h('button', { type: 'button', class: 'secondary' }, 'Download Word (.docx)');
@@ -112,7 +128,9 @@ export function renderBookletStep({ getDossier, commit, blobs, go }) {
     h('div', { class: 'tracks' },
       opt('submission', 'Submission copy', 'The forms and your documents, nothing else. This is what goes to your Head of Department.'),
       opt('working', 'Working copy', 'Adds your self-assessment against the Yellow Book and the checklist of documents. For you.')),
-    h('div', { style: 'margin-top:12px' }, scores),
+    layout,
+    h('h2', {}, 'Also'),
+    scores,
     h('div', { class: 'actions' }, bPdf, bDocx), status));
 
   const make = async (kind) => {

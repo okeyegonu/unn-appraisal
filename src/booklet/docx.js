@@ -15,7 +15,6 @@
  */
 
 const LEGAL = { width: 12240, height: 20160 }; // twips: 8.5 in x 14 in
-const PAGE_PX = { width: 816, height: 1344 }; // 8.5 in x 14 in at 96 px per inch
 
 const esc = (t) => String(t ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
@@ -36,6 +35,13 @@ function coreXml(meta) {
  * local headers and the central directory, outside the checksums, so they are rewritten
  * in place and the archive stays valid.
  */
+/** Width and height of a PNG, from its header; null if it is not one. */
+function pngSize(b) {
+  if (!b || b.length < 24 || b[0] !== 0x89 || b[1] !== 0x50) return null;
+  const v = new DataView(b.buffer, b.byteOffset, b.byteLength);
+  return { width: v.getUint32(16), height: v.getUint32(20) };
+}
+
 export function fixZipDates(bytes, iso) {
   const out = new Uint8Array(bytes);
   const v = new DataView(out.buffer, out.byteOffset, out.byteLength);
@@ -60,7 +66,7 @@ export function fixZipDates(bytes, iso) {
 
 export async function renderDocx(plan, pdf, env) {
   const D = env.docx;
-  const { Document, Packer, Paragraph, TextRun, ImageRun, Table, TableRow, TableCell, WidthType, AlignmentType, BorderStyle } = D;
+  const { Document, Packer, Paragraph, TextRun, ImageRun, Table, TableRow, TableCell, WidthType, AlignmentType, BorderStyle, PageOrientation } = D;
   const INK = '0D216B';
   const sections = [];
   let text = [];
@@ -93,9 +99,15 @@ export async function renderDocx(plan, pdf, env) {
     for (let i = 0; i < count; i++) {
       const png = await env.rasterize(pdf.bytes, first + i);
       flushText();
+      // Each image page takes the size of the booklet page it shows (drawn at 150 dpi),
+      // so a document kept at its own size keeps it in Word too. A 1-pixel stand-in
+      // (the tests') falls back to Legal.
+      const px = pngSize(png);
+      const pt = px && px.width > 100 ? { width: (px.width * 72) / 150, height: (px.height * 72) / 150 } : { width: 612, height: 1008 };
+      const landscape = pt.width > pt.height;
       sections.push({
-        properties: { page: { size: LEGAL, margin: { top: 0, bottom: 0, left: 0, right: 0, header: 0, footer: 0 } } },
-        children: [new Paragraph({ spacing: { after: 0, before: 0 }, children: [new ImageRun({ type: 'png', data: png, transformation: { width: PAGE_PX.width, height: PAGE_PX.height - 2 }, altText: { id: ++imageId, name: `page-${first + i + 1}`, title: `Booklet page ${first + i + 1}`, description: `Booklet page ${first + i + 1}` } })] })],
+        properties: { page: { size: { width: Math.round(pt.width * 20), height: Math.round(pt.height * 20), ...(landscape ? { orientation: PageOrientation.LANDSCAPE } : {}) }, margin: { top: 0, bottom: 0, left: 0, right: 0, header: 0, footer: 0 } } },
+        children: [new Paragraph({ spacing: { after: 0, before: 0 }, children: [new ImageRun({ type: 'png', data: png, transformation: { width: Math.round((pt.width * 96) / 72), height: Math.round((pt.height * 96) / 72) - 2 }, altText: { id: ++imageId, name: `page-${first + i + 1}`, title: `Booklet page ${first + i + 1}`, description: `Booklet page ${first + i + 1}` } })] })],
       });
     }
   };
@@ -124,7 +136,8 @@ export async function renderDocx(plan, pdf, env) {
             : p.kind === 'exhibit' ? `Exhibit ${p.id}: ${p.slot}. ${p.caption}`
               : p.kind === 'exhibit-ref' ? `Exhibit ${p.id}: the same document as Exhibit ${p.sameAs}`
                 : p.kind === 'list' || p.kind === 'continuation' || p.kind === 'divider' ? p.title
-                  : p.kind === 'report' ? 'Self-assessment against the Yellow Book' : p.kind === 'checklist' ? 'Checklist of documents' : null;
+                  : p.kind === 'report' ? 'Self-assessment against the Yellow Book' : p.kind === 'checklist' ? 'Checklist of documents'
+                    : p.kind === 'assessment' ? 'Assessment table for the internal assessors' : null;
           if (label) text.push(para(`${label}${s && s.count ? `  ....  ${s.first + 1}` : ''}`, { size: 10, after: 40, indent: p.kind === 'form' ? 0 : p.kind === 'exhibit' || p.kind === 'exhibit-ref' ? 720 : 360, bold: p.kind === 'form' }));
         });
         flushText();
@@ -173,6 +186,28 @@ export async function renderDocx(plan, pdf, env) {
         text.push(para(part.title, { center: true, bold: true, size: 16 }));
         flushText();
         break;
+      case 'assessment': {
+        flushText();
+        const border = { style: BorderStyle.SINGLE, size: 4, color: '000000' };
+        const borders = { top: border, bottom: border, left: border, right: border };
+        const cell = (t, o = {}) => new TableCell({ borders, columnSpan: o.span, children: [para(t, { bold: o.bold, size: o.size ?? 7.5, after: 0, color: o.color, center: o.center })] });
+        const cols = part.columns;
+        const head = new TableRow({ tableHeader: true, children: cols.map((c) => cell(`${c.n} ${c.head}${c.group ? ` (${c.group})` : ''}`, { bold: true, size: 7 })) });
+        const rows = [head];
+        for (const g of part.groups) {
+          rows.push(new TableRow({ children: [cell(g.heading, { bold: true, span: cols.length, size: 8 })] }));
+          for (const r of g.rows) rows.push(new TableRow({ children: r.map((t, i) => cell(t, { size: 8, color: i <= 1 ? INK : undefined, center: i >= 7 })) }));
+        }
+        sections.push({
+          properties: { page: { size: { width: LEGAL.height, height: LEGAL.width, orientation: PageOrientation.LANDSCAPE }, margin: { top: 720, bottom: 720, left: 600, right: 600 } } },
+          children: [
+            para(part.title, { center: true, bold: true, size: 11 }),
+            ...(part.note ? [para(part.note, { italic: true, size: 8, color: '595959' })] : []),
+            new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, columnWidths: cols.map((c) => Math.round(c.w * (LEGAL.height - 1200))), rows }),
+          ],
+        });
+        break;
+      }
       case 'form':
       case 'exhibit':
         if (span?.count) await pageImages(span.first, span.count);

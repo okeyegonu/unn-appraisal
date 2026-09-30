@@ -39,7 +39,7 @@ export function emptyDossier() {
     career: [], qualifications: [], items: [], teaching: [], professional: [], leave: [],
     institutes: [], supervisions: [], conferences: [], admin: [],
     attachments: {},
-    options: { fill_asap2_scores: false },
+    options: { fill_asap2_scores: false, arrangement: 'sandwich', page_sizes: 'fit', cover: true, assessment_estimates: false },
   };
 }
 
@@ -294,6 +294,10 @@ export function normalize(raw) {
   for (const [h, m] of Object.entries(raw.attachments || {})) if (HASH.test(h)) att[h] = cleanMeta(m);
   d.attachments = att;
   d.options.fill_asap2_scores = Boolean(raw.options?.fill_asap2_scores);
+  d.options.arrangement = raw.options?.arrangement === 'forms_first' ? 'forms_first' : 'sandwich';
+  d.options.page_sizes = raw.options?.page_sizes === 'original' ? 'original' : 'fit';
+  d.options.cover = raw.options?.cover !== false;
+  d.options.assessment_estimates = Boolean(raw.options?.assessment_estimates);
   return d;
 }
 

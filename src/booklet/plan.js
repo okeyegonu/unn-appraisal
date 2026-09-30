@@ -82,6 +82,12 @@ const ITEM_SLOT_ORDER = ['publication', 'impact_factor', 'latest_edition', 'isbn
  */
 export function planBooklet(d, assessment, fields, options = {}) {
   const edition = options.edition === 'working' ? 'working' : 'submission';
+  // Layout choices: from the call, else from the dossier's saved options, else the defaults.
+  const pick = (k, saved, dflt) => options[k] ?? d.options?.[saved] ?? dflt;
+  const arrangement = pick('arrangement', 'arrangement', 'sandwich') === 'forms_first' ? 'forms_first' : 'sandwich';
+  const withCover = pick('cover', 'cover', true) !== false;
+  const estimates = Boolean(pick('estimates', 'assessment_estimates', false));
+  const pageSizes = pick('pageSizes', 'page_sizes', 'fit') === 'original' ? 'original' : 'fit';
   const cadre = d.track.cadre;
   const ranks = CADRES[cadre].ranks;
   const tutor = cadre === 'tutor';
@@ -132,7 +138,7 @@ export function planBooklet(d, assessment, fields, options = {}) {
   };
 
   /* ---- cover, contents, working-copy pages ---- */
-  parts.push({
+  if (withCover) parts.push({
     kind: 'cover',
     university: 'UNIVERSITY OF NIGERIA, NSUKKA',
     title: 'ACADEMIC STAFF APPRAISAL',
@@ -144,7 +150,7 @@ export function planBooklet(d, assessment, fields, options = {}) {
     ],
     edition: edition === 'working' ? "Candidate's working copy: includes a self-assessment against the Yellow Book" : 'Submission copy',
   });
-  parts.push({ kind: 'contents' });
+  if (withCover) parts.push({ kind: 'contents' });
 
   if (edition === 'working' && assessment?.evaluations?.length) {
     parts.push({ kind: 'report', assessment, ranks, criteriaOrder: CRITERIA, labels: CRITERION_LABELS, items: d.items });
@@ -185,6 +191,29 @@ export function planBooklet(d, assessment, fields, options = {}) {
       list.groups.push({ heading: `${g.letter} ${g.title}`, entries });
     }
     return [list, ...exhibits];
+  };
+
+  /**
+   * Put the form pages and what goes behind them in order (RULES §10; README, "The booklet").
+   *   sandwich:    each form page, then its continuation sheets, then the documents for the
+   *                sections that end on it (with a divider for each section);
+   *   forms_first: every form page with its continuation sheets, then the assessment table,
+   *                then all the documents in section order, as dossiers are commonly bound.
+   * The assessment table follows the last form page in both.
+   */
+  const assemble = (first, last, formOf) => {
+    const queue = [];
+    for (let p = first; p <= last; p++) {
+      parts.push({ kind: 'form', page: p, form: formOf(p), fills: pageFills.get(p) || [] });
+      for (const part of (after.get(p) || [])) {
+        if (arrangement === 'sandwich' || part.kind === 'continuation') parts.push(part);
+        else if (part.kind === 'exhibit' || part.kind === 'exhibit-ref') queue.push(part);
+        // forms_first: no dividers, and the assessment table stands in for the B2 list.
+      }
+    }
+    const table = assessmentPart(d, listed, assessment?.evaluations?.[assessment.evaluations.length - 1], estimates, target);
+    if (table) parts.push(table);
+    parts.push(...queue);
   };
 
   if (!tutor) {
@@ -267,12 +296,7 @@ export function planBooklet(d, assessment, fields, options = {}) {
     const evalAtTarget = assessment?.evaluations?.[assessment.evaluations.length - 1];
     for (const f of asap2Rows(d, quals, listed, evalAtTarget, fields, Boolean(d.options?.fill_asap2_scores))) addFills(f.page, [f]);
 
-    const forms = [];
-    for (let p = fields.forms.asap1.start; p <= fields.forms.asap2.end; p++) {
-      forms.push({ kind: 'form', page: p, form: p <= fields.forms.asap1.end ? 'ASAP/1' : 'ASAP/2', fills: pageFills.get(p) || [] });
-      forms.push(...(after.get(p) || []));
-    }
-    parts.push(...forms);
+    assemble(fields.forms.asap1.start, fields.forms.asap2.end, (p) => (p <= fields.forms.asap1.end ? 'ASAP/1' : 'ASAP/2'));
   } else {
     /* ---- Form TSAP ---- */
     const t = fields.forms.tsap.start;
@@ -302,10 +326,7 @@ export function planBooklet(d, assessment, fields, options = {}) {
       ...b2List(),
       cEx.length && { kind: 'divider', id: 'T8', title: 'Documents for 8: conferences' }, ...cEx,
       aEx.length && { kind: 'divider', id: 'T9', title: 'Documents for 9: administrative experience' }, ...aEx]);
-    for (let p = t; p <= fields.forms.tsap.end; p++) {
-      parts.push({ kind: 'form', page: p, form: 'TSAP', fills: pageFills.get(p) || [] });
-      parts.push(...(after.get(p) || []));
-    }
+    assemble(t, fields.forms.tsap.end, () => 'TSAP');
   }
 
   return {
@@ -317,6 +338,8 @@ export function planBooklet(d, assessment, fields, options = {}) {
     },
     footer: [d.candidate.name, d.candidate.staff_no].filter(Boolean).join(' · '),
     edition,
+    arrangement,
+    pageSizes,
     parts: parts.filter(Boolean),
   };
 }
@@ -394,6 +417,101 @@ function asap2Rows(d, quals, listed, evaluation, fields, withScores) {
     out.push({ target: 'at', page: m.page, x: colS.x + 4, y: m.y, text: String(s) });
   }
   return out;
+}
+
+/* ------------------------------------------------------- assessment table */
+
+/**
+ * The tabulated summary each internal assessor completes (Ch. 2, "Uniform format for
+ * the submission of internal assessor's report"; the specimen the Yellow Book places in
+ * Appendix III is not printed in it, so the columns follow the form in use in the
+ * Faculty of Engineering). One row per work, under category headings.
+ *
+ * The candidate's facts fill columns 1 and 2. Columns 3-6 are the assessor's written
+ * judgement and are never filled. With `estimates`, the candidate's own estimates fill
+ * columns 7-14 and the table says so; otherwise they are left for the assessor.
+ */
+export const ASSESSMENT_COLUMNS = [
+  { n: '1.', head: 'List of Publications (Following the Author Listing)', w: 0.265 },
+  { n: '2', head: 'Type of Publication / Number of Authors', w: 0.075 },
+  { n: '3.', head: 'Depth / Level of Research', w: 0.058 },
+  { n: '4.', head: 'Quality & Originality', w: 0.058 },
+  { n: '5.', head: 'Overall Contribution to Knowledge', w: 0.064 },
+  { n: '6.', head: 'Specific Contribution or innovation', w: 0.064 },
+  { n: '7.', head: 'Value / Standing of Publication (Major or Minor)', w: 0.064 },
+  { n: '8.', head: 'Overall Letter Grade (From A=5 to F=0)', w: 0.054 },
+  { n: '9.', head: 'International', w: 0.054, group: 'Class of Publication/Journal Or Creative Works' },
+  { n: '10.', head: 'National', w: 0.054, group: 'Class of Publication/Journal Or Creative Works' },
+  { n: '11.', head: 'Local', w: 0.048, group: 'Class of Publication/Journal Or Creative Works' },
+  { n: '12.', head: 'YB Score', w: 0.044 },
+  { n: '13.', head: 'Weighting Factor', w: 0.049 },
+  { n: '14.', head: 'Final Score', w: 0.049 },
+];
+
+const TABLE_GROUPS = [
+  ['BOOKS AND RELATED ITEMS', (i) => ['books', 'monographs', 'lab'].includes(ITEM_TYPES[i.type]?.group)],
+  ['JOURNAL ARTICLES', (i) => ITEM_TYPES[i.type]?.group === 'journals'],
+  ['CONFERENCE PAPERS', (i) => ITEM_TYPES[i.type]?.group === 'conference_papers'],
+  ['TECHNICAL REPORTS', (i) => i.type === 'technical_report'],
+  ['CREATIVE WORKS', (i) => ['literature', 'music', 'fine_arts', 'archaeology', 'technical'].includes(ITEM_TYPES[i.type]?.group)],
+  ['PATENTS', (i) => i.type === 'patent'],
+];
+
+/** Major or Minor as the type of work claims it; '' where the type does not say. */
+export function majorMinor(type) {
+  if (/_major$/.test(type) || ['book', 'monograph', 'literary'].includes(type)) return 'Major';
+  if (/_minor$/.test(type) || ['minor_book', 'minor_book_article', 'general_interest_book'].includes(type)) return 'Minor';
+  return '';
+}
+
+/** International, National or Local, from the class the candidate gave the work. */
+export function standing(i) {
+  const g = ITEM_TYPES[i.type]?.wf;
+  if (g === 'journal') return { special: 'International', international: 'International', nigerian_a: 'National', nigerian_b: 'National' }[i.journal_class] || '';
+  if (g === 'conference') return { special: 'International', A: 'International', B: 'National', C: 'Local' }[i.conference_class] || '';
+  if (g === 'creative') return { special: 'International', international: 'International', national: 'National', local: 'Local' }[i.creative_class] || '';
+  if (g === 'book') return { A: 'International', B: 'National', C: 'National' }[i.book_class] || '';
+  if (i.type === 'patent') return i.patent_scope === 'international' ? 'International' : i.patent_scope ? 'National' : '';
+  return '';
+}
+
+function assessmentPart(d, listed, evaluation, estimates, target) {
+  if (!listed.length) return null;
+  const perItem = evaluation?.items || {};
+  const n2 = (x) => (x == null ? '' : String(Math.round(x * 100) / 100));
+  const groups = [];
+  for (const [heading, test] of TABLE_GROUPS) {
+    const entries = listed.filter(test).sort((a, b) => (a.year - b.year) || ((a.month || 0) - (b.month || 0)) || a.title.localeCompare(b.title));
+    if (!entries.length) continue;
+    groups.push({
+      heading,
+      rows: entries.map((it, k) => {
+        const c = citation(it);
+        const n = Math.max(1, Number(it.author_count) || 1);
+        const row = [`${k + 1}. ${c.text}`, `${ITEM_TYPES[it.type]?.label.replace(/:.*$/, '') ?? it.type}; ${n === 1 ? 'sole author' : `${n} authors`}`, '', '', '', '', '', '', '', '', '', '', '', ''];
+        if (estimates) {
+          const s = perItem[it.id] || {};
+          const st = standing(it);
+          row[6] = majorMinor(it.type);
+          row[7] = it.grade || '';
+          row[8] = st === 'International' ? '√' : '';
+          row[9] = st === 'National' ? '√' : '';
+          row[10] = st === 'Local' ? '√' : '';
+          row[11] = n2(s.raw);
+          row[12] = n2(s.wf);
+          row[13] = s.admissible ? n2(s.weighted) : '';
+        }
+        return row;
+      }),
+    });
+  }
+  return {
+    kind: 'assessment',
+    title: `ASSESSMENT OF ${(d.candidate.name || '').toUpperCase()} (FOR ${(target || '').toUpperCase()})`,
+    note: estimates ? "Columns 7 to 14 carry the candidate's own estimates, for the internal assessor to confirm or correct. Columns 3 to 6 are for the assessor." : '',
+    columns: ASSESSMENT_COLUMNS,
+    groups,
+  };
 }
 
 /** Every required document still missing, entry by entry. */

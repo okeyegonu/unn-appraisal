@@ -89,6 +89,11 @@ export async function renderPdf(plan, env) {
         contents.push({ indent: 1, label: part.title, page: start });
         break;
       }
+      case 'assessment': {
+        drawAssessment(doc, f, rgb, part);
+        contents.push({ indent: 0, label: part.title.replace(/^ASSESSMENT OF .*? \(FOR /, 'Assessment table for the internal assessors (for ').replace(/\)$/, ')'), page: start });
+        break;
+      }
       case 'divider': {
         const p = pager();
         p.newPage();
@@ -99,7 +104,7 @@ export async function renderPdf(plan, env) {
         break;
       }
       case 'exhibit': {
-        const n = await drawExhibit(doc, f, rgb, degrees, part, getBlob, mammoth, problems);
+        const n = await drawExhibit(doc, f, rgb, degrees, part, getBlob, mammoth, problems, plan.pageSizes);
         contents.push({ indent: 2, label: `Exhibit ${part.id}: ${part.slot}. ${part.caption}`, page: start, pages: n });
         break;
       }
@@ -112,11 +117,13 @@ export async function renderPdf(plan, env) {
   }
 
   // Contents: work out how many pages they need, draw them at the end, move them behind the cover.
+  // A booklet made without a cover has no contents either.
+  const hasContents = plan.parts.some((p) => p.kind === 'contents');
   const rows = contents.map((c) => ({ ...c, text: safe(c.label, f.r) }));
   const lineW = PAGE.width - MARGIN.left - MARGIN.right - 50;
   const linesNeeded = rows.reduce((a, c) => a + wrap(c.text, f.r, 10, lineW - c.indent * 16).length, 0) + 4;
   const perPage = Math.floor((PAGE.height - MARGIN.top - MARGIN.bottom - 30) / 13);
-  let k = Math.max(1, Math.ceil(linesNeeded / perPage));
+  let k = hasContents ? Math.max(1, Math.ceil(linesNeeded / perPage)) : 0;
   const before = doc.getPageCount();
   const drawContents = () => {
     const cp = pager();
@@ -139,26 +146,37 @@ export async function renderPdf(plan, env) {
   };
   // If the contents run to more pages than estimated, every number after them is off by
   // the difference: draw them again with the true count.
-  let cp = drawContents();
-  while (doc.getPageCount() - before > k) {
-    k = doc.getPageCount() - before;
-    while (doc.getPageCount() > before) doc.removePage(doc.getPageCount() - 1);
-    cp = drawContents();
+  if (hasContents) {
+    let cp = drawContents();
+    while (doc.getPageCount() - before > k) {
+      k = doc.getPageCount() - before;
+      while (doc.getPageCount() > before) doc.removePage(doc.getPageCount() - 1);
+      cp = drawContents();
+    }
+    while (doc.getPageCount() - before < k) cp.newPage();
   }
-  while (doc.getPageCount() - before < k) cp.newPage();
   const moved = doc.getPages().slice(before);
   for (let j = moved.length - 1; j >= 0; j--) doc.removePage(before + j);
   moved.forEach((pg, j) => doc.insertPage(1 + j, pg));
 
   // Footer on every page but the cover.
   const total = doc.getPageCount();
+  const covered = plan.parts[0]?.kind === 'cover';
   doc.getPages().forEach((pg, i) => {
-    if (i === 0) return;
+    if (i === 0 && covered) return;
     const { width } = pg.getSize();
-    const left = fit(safe(plan.footer || '', f.r), f.r, 8, width / 2);
-    pg.drawText(left.text, { x: 36, y: 16, size: left.size, font: f.r, color: rgb(...INK.muted) });
+    const small = plan.pageSizes === 'original';
+    const y = small ? 5 : 16;
+    const size = small ? 7 : 8;
+    const left = fit(safe(plan.footer || '', f.r), f.r, size, width / 2);
     const right = `Booklet page ${i + 1} of ${total}`;
-    pg.drawText(right, { x: width - 36 - f.r.widthOfTextAtSize(right, 8), y: 16, size: 8, font: f.r, color: rgb(...INK.muted) });
+    // A white strip behind the footer keeps it legible over a document kept at its own size.
+    const lw = f.r.widthOfTextAtSize(left.text, left.size);
+    const rw = f.r.widthOfTextAtSize(right, size);
+    pg.drawRectangle({ x: 34, y: y - 2, width: lw + 4, height: size + 3, color: rgb(1, 1, 1) });
+    pg.drawRectangle({ x: width - 38 - rw, y: y - 2, width: rw + 4, height: size + 3, color: rgb(1, 1, 1) });
+    pg.drawText(left.text, { x: 36, y, size: left.size, font: f.r, color: rgb(...INK.muted) });
+    pg.drawText(right, { x: width - 36 - rw, y, size, font: f.r, color: rgb(...INK.muted) });
   });
 
   const bytes = await doc.save({ useObjectStreams: true });
@@ -270,6 +288,85 @@ function drawChecklist(p, part) {
     part.entries.map((e) => [e.section, e.what, e.missing.join('\n')]), { size: 9 });
 }
 
+/* ------------------------------------------------------- assessment table */
+
+/** The assessment table, on landscape Legal pages, its header repeated on each. */
+function drawAssessment(doc, f, rgb, part) {
+  const W = PAGE.height;
+  const H = PAGE.width;
+  const M = 30;
+  const total = W - 2 * M;
+  const widths = part.columns.map((c) => c.w * total);
+  const xs = [M];
+  for (let i = 1; i < widths.length; i++) xs.push(xs[i - 1] + widths[i - 1]);
+  const ink = rgb(...INK.text);
+  const fill = rgb(...INK.fill);
+  const pad = 3;
+  const hs = 7.2;
+  const bs = 8;
+  const lead = (z) => z * 1.22;
+  const cellLines = (text, font, size, w) => wrap(safe(text, font), font, size, w - 2 * pad);
+  const firstGroup = part.columns.findIndex((c) => c.group);
+  const lastGroup = part.columns.length - 1 - [...part.columns].reverse().findIndex((c) => c.group);
+  const groupName = part.columns[firstGroup]?.group;
+  let pg;
+  let y;
+
+  const header = () => {
+    pg = doc.addPage([W, H]);
+    y = H - M;
+    const t = safe(part.title, f.b);
+    pg.drawText(t, { x: (W - f.b.widthOfTextAtSize(t, 11)) / 2, y: y - 11, size: 11, font: f.b, color: ink });
+    y -= 18;
+    if (part.note) {
+      const n = fit(safe(part.note, f.i), f.i, 7.5, total);
+      pg.drawText(n.text, { x: M, y: y - 8, size: n.size, font: f.i, color: rgb(...INK.muted) });
+      y -= 12;
+    }
+    const heads = part.columns.map((c) => cellLines(`${c.n} ${c.head}`, f.b, hs, widths[part.columns.indexOf(c)]));
+    const bandH = groupName ? lead(hs) * cellLines(groupName, f.b, hs, xs[lastGroup] + widths[lastGroup] - xs[firstGroup]).length + 2 * pad : 0;
+    const colH = Math.max(...heads.map((l) => l.length)) * lead(hs) + 2 * pad;
+    const top = y;
+    part.columns.forEach((c, i) => {
+      const inGroup = c.group && bandH;
+      const h = colH + (inGroup ? 0 : bandH);
+      const cy = inGroup ? top - bandH : top;
+      pg.drawRectangle({ x: xs[i], y: cy - h, width: widths[i], height: h, borderColor: ink, borderWidth: 0.6 });
+      heads[i].forEach((ln, k) => pg.drawText(ln, { x: xs[i] + pad, y: cy - pad - hs - k * lead(hs), size: hs, font: f.b, color: ink }));
+    });
+    if (bandH) {
+      const gx = xs[firstGroup];
+      const gw = xs[lastGroup] + widths[lastGroup] - gx;
+      pg.drawRectangle({ x: gx, y: top - bandH, width: gw, height: bandH, borderColor: ink, borderWidth: 0.6 });
+      cellLines(groupName, f.b, hs, gw).forEach((ln, k) => pg.drawText(ln, { x: gx + pad, y: top - pad - hs - k * lead(hs), size: hs, font: f.b, color: ink }));
+    }
+    y = top - bandH - colH;
+  };
+
+  header();
+  for (const g of part.groups) {
+    const gh = lead(bs) + 2 * pad;
+    if (y - gh < M) header();
+    pg.drawRectangle({ x: M, y: y - gh, width: total, height: gh, borderColor: ink, borderWidth: 0.6 });
+    pg.drawText(safe(g.heading, f.b), { x: M + pad, y: y - pad - bs, size: bs, font: f.b, color: ink });
+    y -= gh;
+    for (const row of g.rows) {
+      const lines = row.map((c, i) => cellLines(c, f.r, bs, widths[i]));
+      const h = Math.max(1, ...lines.map((l) => l.length)) * lead(bs) + 2 * pad;
+      if (y - h < M) header();
+      lines.forEach((ls, i) => {
+        pg.drawRectangle({ x: xs[i], y: y - h, width: widths[i], height: h, borderColor: ink, borderWidth: 0.6 });
+        ls.forEach((ln, k) => {
+          const w = f.r.widthOfTextAtSize(ln, bs);
+          const x = i >= 7 ? xs[i] + (widths[i] - w) / 2 : xs[i] + pad;
+          pg.drawText(ln, { x, y: y - pad - bs - k * lead(bs), size: bs, font: f.r, color: i <= 1 ? fill : ink });
+        });
+      });
+      y -= h;
+    }
+  }
+}
+
 /* ---------------------------------------------------------------- exhibits */
 
 function band(pg, f, rgb, part, i, n) {
@@ -301,7 +398,17 @@ function place(w, h, cw) {
   return { x: x0, y: y0, width: w * s, height: h * s, rotate: 0 };
 }
 
-async function drawExhibit(doc, f, rgb, degrees, part, getBlob, mammoth, problems) {
+/** The small exhibit label used when documents keep their own page size. */
+function label(pg, f, rgb, part, i, n) {
+  const { width, height } = pg.getSize();
+  const text = fit(safe(`Exhibit ${part.id} · ${part.slot} · page ${i} of ${n}`, f.b), f.b, 7.5, width - 20);
+  const w = f.b.widthOfTextAtSize(text.text, text.size);
+  pg.drawRectangle({ x: 6, y: height - 15, width: w + 8, height: text.size + 5, color: rgb(1, 1, 1), borderColor: rgb(...INK.rule), borderWidth: 0.5 });
+  pg.drawText(text.text, { x: 10, y: height - 12, size: text.size, font: f.b, color: rgb(...INK.text) });
+}
+
+async function drawExhibit(doc, f, rgb, degrees, part, getBlob, mammoth, problems, pageSizes = 'fit') {
+  const original = pageSizes === 'original';
   const blob = await getBlob(part.hash);
   const fail = (why) => {
     problems.push({ id: part.id, name: part.name, why });
@@ -321,8 +428,19 @@ async function drawExhibit(doc, f, rgb, degrees, part, getBlob, mammoth, problem
       const srcPages = src.getPages();
       const embedded = await doc.embedPages(srcPages);
       embedded.forEach((ep, i) => {
-        const pg = doc.addPage([PAGE.width, PAGE.height]);
         const rot = ((srcPages[i].getRotation().angle % 360) + 360) % 360;
+        if (original) {
+          // The page at its own size, turned upright, with a small label.
+          const turned = rot === 90 || rot === 270;
+          const W = turned ? ep.height : ep.width;
+          const H = turned ? ep.width : ep.height;
+          const pg = doc.addPage([W, H]);
+          const at = rot === 90 ? { x: 0, y: H } : rot === 180 ? { x: W, y: H } : rot === 270 ? { x: W, y: 0 } : { x: 0, y: 0 };
+          pg.drawPage(ep, { ...at, width: ep.width, height: ep.height, rotate: degrees(rot === 90 ? -90 : rot === 270 ? 90 : rot) });
+          label(pg, f, rgb, part, i + 1, embedded.length);
+          return;
+        }
+        const pg = doc.addPage([PAGE.width, PAGE.height]);
         const pl = place(ep.width, ep.height, rot);
         pg.drawPage(ep, { x: pl.x, y: pl.y, width: pl.width, height: pl.height, rotate: degrees(pl.rotate) });
         band(pg, f, rgb, part, i + 1, embedded.length);
@@ -333,6 +451,24 @@ async function drawExhibit(doc, f, rgb, degrees, part, getBlob, mammoth, problem
       const img = kind === 'jpeg' ? await doc.embedJpg(blob.bytes) : await doc.embedPng(blob.bytes);
       const o = kind === 'jpeg' ? jpegOrientation(blob.bytes) : 1;
       const cw = { 3: 180, 4: 180, 5: 90, 6: 90, 7: 270, 8: 270 }[o] || 0;
+      if (original) {
+        // A photograph or scan on an A4 page of its own orientation, 18 pt margins.
+        const turned = cw === 90 || cw === 270;
+        const landscape = (turned ? img.height : img.width) > (turned ? img.width : img.height);
+        const [W, H] = landscape ? [842, 595] : [595, 842];
+        const pg = doc.addPage([W, H]);
+        const dw = turned ? img.height : img.width;
+        const dh = turned ? img.width : img.height;
+        const sc = Math.min((W - 36) / dw, (H - 36) / dh);
+        const x0 = (W - dw * sc) / 2;
+        const y0 = (H - dh * sc) / 2;
+        const w = img.width * sc;
+        const hh = img.height * sc;
+        const at = cw === 90 ? { x: x0, y: y0 + dh * sc, rotate: -90 } : cw === 180 ? { x: x0 + dw * sc, y: y0 + dh * sc, rotate: 180 } : cw === 270 ? { x: x0 + dw * sc, y: y0, rotate: 90 } : { x: x0, y: y0, rotate: 0 };
+        pg.drawImage(img, { x: at.x, y: at.y, width: w, height: hh, rotate: degrees(at.rotate) });
+        label(pg, f, rgb, part, 1, 1);
+        return 1;
+      }
       const pg = doc.addPage([PAGE.width, PAGE.height]);
       const pl = place(img.width, img.height, cw);
       pg.drawImage(img, { x: pl.x, y: pl.y, width: pl.width, height: pl.height, rotate: degrees(pl.rotate) });

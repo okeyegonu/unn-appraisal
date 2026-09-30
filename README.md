@@ -112,6 +112,37 @@ candidate's name, staff number, and "Booklet page n of N" at the foot.
 * **A file that cannot be read** gets a clearly marked placeholder page. It never breaks
   the booklet.
 
+**The assessment table.** After the last form page comes a landscape table, "ASSESSMENT
+OF [NAME] (FOR [RANK])". It is the tabulated summary each internal assessor completes
+(Ch. 2, "Uniform format for the submission of internal assessor's report"). The Yellow
+Book's specimen of it (Appendix III) is not printed in the book, so the 14 columns
+follow the form in use in the Faculty of Engineering.
+
+| Columns | Content | Filled by |
+|---|---|---|
+| 1 | The list of works, under category headings | The candidate |
+| 2 | Type of work and number of authors | The candidate |
+| 3–6 | Depth, originality, contribution, innovation | Always left for the assessor |
+| 7–14 | Major or minor, letter grade, class (international, national or local), YB score, weighting factor, final score | Left blank, or filled with the candidate's own estimates (an option) |
+
+**Arrangement, a choice on the Booklet tab:**
+
+* **Sandwiched** (default): each form page, then the documents for the sections that end
+  on it, with a divider for each section.
+* **Forms first, then documents**: every form page and the assessment table, then all
+  the documents in section order, as dossiers are commonly bound. The assessment table
+  stands in for the separate B2 list.
+
+**Page sizes, a choice:**
+
+* **Fitted** (default): every document is placed on a Legal page, under a band showing
+  the exhibit number, the kind of document and "page i of k".
+* **Each at its own size**: A4, Letter or landscape, as the document is, with a small
+  exhibit label in the corner. Rotated pages are turned upright. Photographs and scans
+  are placed on an A4 page that matches their orientation.
+
+**Cover and contents** can be left out.
+
 **Two editions:**
 
 * the **submission copy**: the forms and documents only;
@@ -211,12 +242,13 @@ the same Wi-Fi.
 
 ```bash
 npm install                 # the libraries, for the tests (the site itself uses vendor/)
-npm test                    # engine, record, sessions, staff number, booklet: 64 tests
+npm test                    # engine, record, sessions, staff number, booklet: 69 tests
 geckodriver --port 4444 &   # for the browser suites
 ./serve.sh 8000 &
 npm run smoke               # a candidate from an empty device to a downloaded booklet
 npm run smoke:mobile        # 360 px and 390 px phones: no sideways scrolling, 16 px fields
 npm run specimen            # write specimen-booklet.pdf from the test fixture
+                            # (node tools/sample-booklet.mjs out.pdf working forms_first original estimates)
 ```
 
 When the template, the libraries or the typeface change:

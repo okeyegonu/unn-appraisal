@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Write a specimen booklet from the test fixture, with sample documents attached.
- * Run: node tools/sample-booklet.mjs [out.pdf] [submission|working]
+ * Run: node tools/sample-booklet.mjs [out.pdf] [submission|working] [sandwich|forms_first] [fit|original] [estimates]
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 import * as PDFLib from 'pdf-lib';
@@ -16,6 +16,7 @@ import { lecturerOneToSenior } from '../tests/fixtures.mjs';
 
 const out = process.argv[2] ?? 'specimen-booklet.pdf';
 const edition = process.argv[3] ?? 'working';
+const layout = { arrangement: process.argv[4] ?? 'sandwich', pageSizes: process.argv[5] ?? 'fit', estimates: process.argv[6] === 'estimates' };
 const root = new URL('..', import.meta.url);
 const read = (p) => readFileSync(new URL(p, root));
 const fields = JSON.parse(read('src/template/fields.json'));
@@ -53,7 +54,7 @@ for (const t of d.teaching.filter((x) => x.session >= 2023)) await add('teaching
 for (const c of d.conferences.slice(0, 3)) await add('conferences', c.id, 'attendance', `Certificate: ${c.title}`);
 
 const a = assess(d);
-const plan = planBooklet(d, a, fields, { edition });
+const plan = planBooklet(d, a, fields, { edition, ...layout });
 const res = await renderPdf(plan, {
   PDFLib, fontkit, mammoth, fields, template: read('src/template/template.pdf'), getBlob: (h) => blobs.get(h),
   fonts: { regular: read('vendor/fonts/termes-regular.ttf'), bold: read('vendor/fonts/termes-bold.ttf'), italic: read('vendor/fonts/termes-italic.ttf'), bolditalic: read('vendor/fonts/termes-bolditalic.ttf') },
