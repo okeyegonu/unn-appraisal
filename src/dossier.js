@@ -23,7 +23,9 @@ export const SCHEMA_VERSION = 1;
 export const APP_ID = 'unn-appraisal';
 
 /** The lists of entries, and what each holds. */
-export const LISTS = ['career', 'qualifications', 'items', 'teaching', 'professional', 'leave', 'institutes', 'supervisions', 'conferences', 'admin'];
+export const LISTS = ['career', 'qualifications', 'items', 'teaching', 'professional', 'leave', 'institutes', 'supervisions', 'conferences', 'admin',
+  // Form ASCV, B4 and B5 (Reader and Professor): editorships, reviews, examinerships, societies, awards.
+  'editorships', 'reviews', 'book_reviews', 'external_exams', 'memberships', 'awards'];
 
 export function emptyDossier() {
   return {
@@ -38,6 +40,7 @@ export function emptyDossier() {
     evidence: {},
     career: [], qualifications: [], items: [], teaching: [], professional: [], leave: [],
     institutes: [], supervisions: [], conferences: [], admin: [],
+    editorships: [], reviews: [], book_reviews: [], external_exams: [], memberships: [], awards: [],
     attachments: {},
     options: { fill_asap2_scores: false, arrangement: 'sandwich', page_sizes: 'fit', cover: true, assessment_estimates: false },
   };
@@ -76,6 +79,12 @@ export function identityKey(list, e) {
     case 'leave': return `leave:${norm(e.institution)}:${e.from}`;
     case 'institutes': return `inst:${norm(e.institute)}:${e.from}`;
     case 'supervisions': return `sup:${norm(e.student)}:${norm(e.degree)}`;
+    case 'editorships': return `ed:${norm(e.journal)}:${norm(e.role)}:${norm(e.from)}`;
+    case 'reviews': return `rev:${norm(e.title)}:${norm(e.journal)}`;
+    case 'book_reviews': return `brev:${norm(e.title)}:${norm(e.requested_by)}`;
+    case 'external_exams': return `exam:${norm(e.examination)}:${norm(e.institution)}:${norm(e.date)}`;
+    case 'memberships': return `mem:${norm(e.body)}:${norm(e.grade)}`;
+    case 'awards': return `award:${norm(e.award)}:${norm(e.date)}`;
     default: return `${list}:${e.id}`;
   }
 }
@@ -97,6 +106,12 @@ export function validateEntry(list, e) {
           'The evaluation score is a percentage from 0 to 100');
     case 'conferences':
       return need(norm(e.title), 'Give the conference') ?? need(Number.isInteger(e.session ?? NaN) || /^\d+$/.test(String(e.session ?? '')), 'Type the session, e.g. 2025/2026');
+    case 'editorships': return need(norm(e.journal), 'Give the journal');
+    case 'reviews': return need(norm(e.title), 'Give the title of the paper reviewed') ?? need(norm(e.journal), 'Give the journal');
+    case 'book_reviews': return need(norm(e.title), 'Give the title of the book reviewed');
+    case 'external_exams': return need(norm(e.examination), 'Give the examination') ?? need(norm(e.institution), 'Give the institution');
+    case 'memberships': return need(norm(e.body), 'Give the learned society');
+    case 'awards': return need(norm(e.award), 'Give the prize or award');
     case 'admin':
       return need(e.kind, 'Choose the kind of service') ?? need(Number.isInteger(Number(e.from_session)) && e.from_session !== null && e.from_session !== '', 'Type the session it began, e.g. 2021/2022')
         ?? need(e.to_session == null || e.to_session === '' || Number(e.to_session) >= Number(e.from_session), 'The session it ended cannot come before the session it began');
@@ -254,6 +269,12 @@ export function cleanEntry(list, e) {
     case 'leave': return { ...base, institution: str(e.institution, 200), from: str(e.from, 20), to: str(e.to, 20), kind: str(e.kind, 30) };
     case 'institutes': return { ...base, institute: str(e.institute, 200), from: str(e.from, 20), to: str(e.to, 20) };
     case 'supervisions': return { ...base, student: str(e.student, 200), project: str(e.project, 400), date: str(e.date, 20), degree: str(e.degree, 40), joint: str(e.joint, 200) };
+    case 'editorships': return { ...base, journal: str(e.journal, 300), role: str(e.role, 80), from: str(e.from, 20), to: str(e.to, 20) };
+    case 'reviews': return { ...base, title: str(e.title, 400), journal: str(e.journal, 300), date: str(e.date, 20) };
+    case 'book_reviews': return { ...base, title: str(e.title, 400), requested_by: str(e.requested_by, 300), date: str(e.date, 20) };
+    case 'external_exams': return { ...base, examination: str(e.examination, 300), level: str(e.level, 30), institution: str(e.institution, 300), date: str(e.date, 20) };
+    case 'memberships': return { ...base, grade: str(e.grade, 40), body: str(e.body, 300), date: str(e.date, 20) };
+    case 'awards': return { ...base, award: str(e.award, 300), awarded_by: str(e.awarded_by, 300), date: str(e.date, 20) };
     default: return base;
   }
 }

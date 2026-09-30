@@ -137,7 +137,8 @@ export async function renderDocx(plan, pdf, env) {
               : p.kind === 'exhibit-ref' ? `Exhibit ${p.id}: the same document as Exhibit ${p.sameAs}`
                 : p.kind === 'list' || p.kind === 'continuation' || p.kind === 'divider' ? p.title
                   : p.kind === 'report' ? 'Self-assessment against the Yellow Book' : p.kind === 'checklist' ? 'Checklist of documents'
-                    : p.kind === 'assessment' ? 'Assessment table for the internal assessors' : null;
+                    : p.kind === 'assessment' ? 'Assessment table for the internal assessors'
+                      : p.kind === 'ascv' ? 'Form ASCV: academic staff curriculum vitae, with the list of publications' : null;
           if (label) text.push(para(`${label}${s && s.count ? `  ....  ${s.first + 1}` : ''}`, { size: 10, after: 40, indent: p.kind === 'form' ? 0 : p.kind === 'exhibit' || p.kind === 'exhibit-ref' ? 720 : 360, bold: p.kind === 'form' }));
         });
         flushText();
@@ -206,6 +207,28 @@ export async function renderDocx(plan, pdf, env) {
             new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, columnWidths: cols.map((c) => Math.round(c.w * (LEGAL.height - 1200))), rows }),
           ],
         });
+        break;
+      }
+      case 'ascv': {
+        text.push(para('UNIVERSITY OF NIGERIA', { center: true, bold: true, size: 12, after: 40 }));
+        text.push(para(part.title, { center: true, bold: true, size: 12 }));
+        text.push(para(part.note, { size: 10.5 }));
+        for (const sec of part.sections) {
+          text.push(para(sec.head, { bold: true, size: 11 }));
+          for (const b of sec.blocks) {
+            if (b.kv) { for (const [lab, k, v] of b.kv) text.push(para(`${lab ? `${lab}  ` : ''}${k}: ${v || ''}`, { size: 10.5, indent: lab ? 0 : 480 })); continue; }
+            if (b.title) text.push(para(`${b.label ? `${b.label}  ` : ''}${b.title}`, { size: 10.5, bold: b.bold }));
+            if (b.lines) text.push(table([''], (b.lines.length ? b.lines : ['', '']).map((x) => [x]), { color: INK }));
+            if (b.cols) text.push(table(b.cols, b.rows.length ? b.rows.map((r) => r.map((x) => x ?? '')) : [Array(b.cols.length).fill(''), Array(b.cols.length).fill('')], { color: INK }));
+            if (b.after) text.push(para(b.after, { italic: true, size: 9.5, center: true }));
+          }
+        }
+        text.push(para('LIST OF PUBLICATIONS', { center: true, bold: true, size: 12 }));
+        for (const g of part.publications) {
+          text.push(para(g.heading, { bold: true }));
+          g.entries.forEach((e, i) => text.push(para(`${i + 1}. ${e}`, { size: 10.5, color: INK, indent: 360 })));
+        }
+        flushText();
         break;
       }
       case 'form':

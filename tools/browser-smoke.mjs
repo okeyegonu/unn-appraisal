@@ -235,6 +235,8 @@ try {
   await t(`__t.button('Add office', __t.form('Administrative'))`);
   await settle();
   check('one office', (await t('return __t.count("admin")')) === 1);
+  const ascvLists = await s.exec(`return [...document.querySelectorAll('main section h2')].map((x) => x.textContent)`);
+  check('tab 7 also takes what Form ASCV needs (B4, B5)', ['Editorship of reputable journals', 'Papers reviewed for reputable journals', 'Invited book reviews', 'External examinerships', 'Membership of learned societies', 'Academic and professional prizes and awards'].every((x) => ascvLists.includes(x)));
 
   console.log('\nThe appraisal run');
   await t(`__t.step('Appraisal')`);

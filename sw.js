@@ -6,7 +6,7 @@
  * libraries and typeface are large and never change within a version, so they are
  * served from the cache once fetched. Bump VERSION when anything under vendor/ changes.
  */
-const VERSION = 'unn-appraisal-v5';
+const VERSION = 'unn-appraisal-v6';
 const SHELL = [
   './', './index.html', './manifest.webmanifest', './src/styles.css',
   './src/rulebook.js', './src/sessions.js', './src/staffno.js', './src/engine.js', './src/dossier.js', './src/storage.js',

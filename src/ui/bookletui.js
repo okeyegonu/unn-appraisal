@@ -133,18 +133,20 @@ export function renderBookletStep({ getDossier, commit, blobs, go }) {
     scores,
     h('div', { class: 'actions' }, bPdf, bDocx), status));
 
-  const make = async (kind) => {
-    bPdf.disabled = true; bDocx.disabled = true;
+  const make = async (kind, only) => {
+    const all = [...wrap.querySelectorAll('button')];
+    all.forEach((b) => { b.disabled = true; });
     const say = (t) => { status.className = 'msg'; status.textContent = t; };
     try {
       say('Loading the typesetter…');
       const L = await loadLibs();
       const dossier = getDossier();
       const a = assess(dossier);
-      const plan = planBooklet(dossier, a, L.fields, { edition });
+      const plan = planBooklet(dossier, a, L.fields, { edition, only });
       say('Filling the forms and placing your documents…');
       const pdf = await renderPdf(plan, { ...L, getBlob: (hash) => blobs.get(hash), fingerprint: await fingerprint(dossier) });
-      const stem = `appraisal-${(dossier.candidate.staff_no || dossier.candidate.name || 'candidate').replace(/[^A-Za-z0-9]+/g, '-')}-${dossier.track.appraisal_year}-${edition}`;
+      const who = (dossier.candidate.staff_no || dossier.candidate.name || 'candidate').replace(/[^A-Za-z0-9]+/g, '-');
+      const stem = only === 'ascv' ? `form-ascv-${who}-${dossier.track.appraisal_year}` : `appraisal-${who}-${dossier.track.appraisal_year}-${edition}`;
       if (kind === 'pdf') {
         download(new Blob([pdf.bytes], { type: 'application/pdf' }), `${stem}.pdf`);
       } else {
@@ -165,10 +167,23 @@ export function renderBookletStep({ getDossier, commit, blobs, go }) {
       status.className = 'msg bad';
       status.textContent = `The booklet could not be made: ${err?.message || err}`;
     } finally {
-      bPdf.disabled = false; bDocx.disabled = false;
+      all.forEach((b) => { b.disabled = false; });
     }
   };
   bPdf.addEventListener('click', () => make('pdf'));
   bDocx.addEventListener('click', () => make('docx'));
+
+  // Form ASCV on its own, for Reader and Professor: it goes with the publications to each
+  // external assessor (Ch. 3 §3(h)). The full booklet carries it too.
+  if (d.track.target_level >= 4 && d.track.cadre !== 'tutor') {
+    const aPdf = h('button', { type: 'button' }, 'Download Form ASCV (PDF)');
+    const aDocx = h('button', { type: 'button', class: 'secondary' }, 'Download Form ASCV (Word)');
+    aPdf.addEventListener('click', () => make('pdf', 'ascv'));
+    aDocx.addEventListener('click', () => make('docx', 'ascv'));
+    wrap.append(h('div', { class: 'card' },
+      h('h2', { style: 'margin-top:0' }, 'Form ASCV for the external assessors'),
+      h('p', {}, 'For Reader and Professor, each external assessor receives your curriculum vitae on Form ASCV with the list of your publications (Ch. 3). It is in the booklet after the assessment table; here it is on its own, for the packets. Its sections B4 and B5 (editorships, reviews, examinerships, learned societies, prizes) come from tab 7.'),
+      h('div', { class: 'actions' }, aPdf, aDocx)));
+  }
   return wrap;
 }

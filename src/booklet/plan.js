@@ -138,6 +138,20 @@ export function planBooklet(d, assessment, fields, options = {}) {
   };
 
   /* ---- cover, contents, working-copy pages ---- */
+  const needsAscv = !tutor && Number.isInteger(d.track.target_level) && d.track.target_level >= 4;
+  // Form ASCV on its own, for the packets sent to the external assessors.
+  if (options.only === 'ascv') {
+    const qs = d.qualifications.slice().sort(byDate('date'));
+    const ls = d.items.filter((i) => (i.type === 'patent' ? i.status === 'granted' : i.status === 'published'));
+    return {
+      meta: { title: `Form ASCV: ${d.candidate.name}`.trim(), author: d.candidate.name, subject: `Curriculum vitae for ${target}, University of Nigeria, Nsukka`,
+        date: Number.isInteger(year) ? `${year + 1}-09-30T00:00:00Z` : '2000-01-01T00:00:00Z' },
+      footer: [d.candidate.name, d.candidate.staff_no].filter(Boolean).join(' · '),
+      edition, arrangement: 'sandwich', pageSizes: 'fit', pageLabel: 'Form ASCV, page',
+      parts: [ascvPart(d, ranks, ls, qs, teachingRows(d))],
+    };
+  }
+
   if (withCover) parts.push({
     kind: 'cover',
     university: 'UNIVERSITY OF NIGERIA, NSUKKA',
@@ -213,6 +227,9 @@ export function planBooklet(d, assessment, fields, options = {}) {
     }
     const table = assessmentPart(d, listed, assessment?.evaluations?.[assessment.evaluations.length - 1], estimates, target);
     if (table) parts.push(table);
+    // Form ASCV and the list of publications go to the external assessors for Reader and
+    // Professor (Ch. 3 §3(h), (i)); the booklet carries them after the assessment table.
+    if (needsAscv) parts.push(ascvPart(d, ranks, listed, quals, teachingRows(d)));
     parts.push(...queue);
   };
 
@@ -511,6 +528,78 @@ function assessmentPart(d, listed, evaluation, estimates, target) {
     note: estimates ? "Columns 7 to 14 carry the candidate's own estimates, for the internal assessor to confirm or correct. Columns 3 to 6 are for the assessor." : '',
     columns: ASSESSMENT_COLUMNS,
     groups,
+  };
+}
+
+/* ------------------------------------------------------------ Form ASCV */
+
+/**
+ * Form ASCV, the academic staff curriculum vitae (Yellow Book, ch. 5), with the list of
+ * publications that goes with it to the external assessors (Ch. 3 §3(h)). Sections are
+ * in the form's own order and wording; an empty section keeps two ruled rows.
+ */
+export function ascvPart(d, ranks, listed, quals, teachRows) {
+  const session = (x) => (Number.isInteger(x) ? `${x}/${x + 1}` : '');
+  const span = (a, b) => [a, b].filter(Boolean).join(' – ');
+  const diplomaKinds = new Set(['pg_diploma', 'fellowship']);
+  const label = (q) => q.title || q.kind;
+  const line = (q) => [label(q), q.institution, q.date].filter(Boolean).join(', ');
+  const admin = d.admin.slice().sort((a, b) => a.from_session - b.from_session);
+  const when = (a) => span(session(a.from_session), a.to_session != null ? session(a.to_session) : 'date');
+  const postgraduate = (deg) => !/^B\./i.test(deg || '') && deg !== '';
+  const sections = [
+    { head: 'SECTION A: GENERAL INFORMATION', blocks: [
+      { kv: [['A1', 'Name', d.candidate.name], ['', 'Department', d.candidate.department], ['', 'Faculty', d.candidate.faculty]] },
+      { label: 'A2', title: 'Career within the University:', cols: ['Post', 'Date'], rows: d.career.slice().sort(byDate('date')).map((c) => [c.post, c.date]) },
+    ] },
+    { head: 'SECTION B: Qualification(s)', blocks: [
+      { label: 'B1', title: 'Academic Qualifications', bold: true },
+      { label: '(a)', title: 'Degree (with dates and granting bodies)', lines: quals.filter((q) => !diplomaKinds.has(q.kind)).map(line) },
+      { label: '(b)', title: 'Diplomas and Professional qualifications (with dates and granting bodies)', lines: quals.filter((q) => diplomaKinds.has(q.kind)).map(line) },
+      { label: 'B2', title: 'Teaching and Professional Experience', bold: true },
+      { label: '(a)', title: 'Employment/Professional Experience BEFORE appointment in the University (indicating clearly whether full or part-time)', cols: ['Post', 'Date'],
+        rows: d.professional.slice().sort(byDate('from')).map((p) => [`${p.post}, ${p.employer} (${p.fulltime === false ? 'part-time' : 'full-time'})`, span(p.from, p.to)]) },
+      { label: '(b)', title: 'Period of Full-time teaching Appointment in the University (period of part-time appointment is to be ignored)', cols: ['Post', 'Date', 'Credit Load'], rows: teachRows },
+      { label: '(c)', title: 'Period spent in Research Institutions', cols: ['Institute', 'From', 'To'], rows: d.institutes.map((x) => [x.institute, x.from, x.to]) },
+      { label: '(d)', title: 'Successful Postgraduate Supervision', cols: ['Project/Candidate Supervised', 'Date', 'Degree Awarded'],
+        rows: d.supervisions.filter((x) => postgraduate(x.degree)).sort(byDate('date')).map((x) => [`${x.student}${x.project ? `: ${x.project}` : ''}${x.joint ? ` (jointly with ${x.joint})` : ''}`, x.date, x.degree]),
+        after: '(Where joint supervision is involved, give names of co-supervisors)' },
+      { label: 'B3', title: 'Conferences', bold: true, cols: ['Conference (title, date and place)', 'Paper Read'],
+        rows: d.conferences.slice().sort((a, b) => a.session - b.session).map((c) => [[c.title, c.date, c.place].filter(Boolean).join(', '), c.paper_read ? (c.paper_title || 'Yes') : 'No paper']) },
+      { label: 'B4', title: 'Books and Journals', bold: true },
+      { label: '(a)', title: 'Editorship of Reputable Journals:', cols: ['Journal', 'Duration of Appointment'],
+        rows: d.editorships.map((e) => [`${e.journal}${e.role ? ` (${e.role})` : ''}`, span(e.from, e.to || (e.from ? 'date' : ''))]) },
+      { label: '(b)', title: 'Professional Review of Paper for Reputable Journals:', cols: ['Title of papers reviewed', 'Journal', 'Date'],
+        rows: d.reviews.slice().sort(byDate('date')).map((r) => [r.title, r.journal, r.date]) },
+      { label: '(c)', title: 'Invited Book Reviews:', cols: ['Title of Books reviewed', 'At the Request of', 'Date'],
+        rows: d.book_reviews.slice().sort(byDate('date')).map((r) => [r.title, r.requested_by, r.date]) },
+      { label: 'B5', title: 'Recognitions', bold: true },
+      { label: '(a)', title: 'External Examiner ship (Undergraduate & Postgraduate):', cols: ['Examination', 'Institution', 'Date'],
+        rows: d.external_exams.slice().sort(byDate('date')).map((x) => [`${x.examination}${x.level ? ` (${x.level})` : ''}`, x.institution, x.date]) },
+      { label: '(b)', title: 'Membership of Learned Societies:', cols: ['Membership/Fellowship', 'Body', 'Date'],
+        rows: d.memberships.map((m) => [m.grade, m.body, m.date]) },
+      { label: '', title: 'Academic/Professional Prizes and Awards:', bold: true, cols: ['', 'Date'],
+        rows: d.awards.slice().sort(byDate('date')).map((a) => [`${a.award}${a.awarded_by ? `, ${a.awarded_by}` : ''}`, a.date]) },
+    ] },
+    { head: 'SECTION C: Administrative Experience; Committee Work and General Contribution', blocks: [
+      { label: '(a)', title: 'Deanship/Directorship/Headship/Coordinator ship Experience', bold: true, cols: ['Post', 'Date'],
+        rows: admin.filter((a) => a.kind === 'headship').map((a) => [[a.office, a.body].filter(Boolean).join(', '), when(a)]) },
+      { label: '(b)', title: 'Service on Committees', cols: ['Committee', 'Post Head', 'Date'],
+        rows: admin.filter((a) => a.kind === 'committee').map((a) => [a.body, a.office || a.position, when(a)]) },
+      { label: '(C)', title: 'Service to Relevant Public Bodies:', cols: ['Public Body', 'Position & Nature of Assignment', 'Date'],
+        rows: admin.filter((a) => a.kind === 'outside_body' || a.kind === 'community').map((a) => [a.body, [a.office, a.position].filter(Boolean).join(', '), when(a)]) },
+    ] },
+  ];
+  const pubs = B2_CATEGORIES.map((c) => ({ heading: `${c.letter} ${c.title}`, entries: listed.filter(c.test)
+    .sort((a, b) => (a.year - b.year) || ((a.month || 0) - (b.month || 0)) || a.title.localeCompare(b.title)).map((it) => citation(it).text) }))
+    .filter((g) => g.entries.length);
+  return {
+    kind: 'ascv',
+    title: 'FORM ASCV ACADEMIC STAFF CURRICULUM VITAE',
+    note: "(To be completed by the candidate and sent to external assessors along with the candidate's publications and creative works).",
+    rank: Number.isInteger(d.track.target_level) ? ranks[d.track.target_level] : '',
+    sections,
+    publications: pubs,
   };
 }
 

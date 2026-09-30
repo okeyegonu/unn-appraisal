@@ -155,12 +155,15 @@ export class Pager {
     };
     const heights = (row, font) => Math.max(1, ...cellLines(row, font).map((l) => l.length)) * lead + 2 * pad;
     const head = columns.map((c) => c.head);
-    const headH = heights(head, this.f.b);
-    this.ensure(headH + (rows.length ? heights(rows[0], this.f.r) : 0));
-    drawRow(head, this.f.b, INK.text);
+    const headH = opts.noHead ? 0 : heights(head, this.f.b);
+    // A table that fits on one page is kept whole rather than split across two.
+    const whole = headH + rows.reduce((a, r) => a + heights(r, this.f.r), 0);
+    const usable = PAGE.height - MARGIN.top - MARGIN.bottom;
+    this.ensure(whole <= usable ? whole : headH + (rows.length ? heights(rows[0], this.f.r) : 0));
+    if (!opts.noHead) drawRow(head, this.f.b, INK.text);
     for (const row of rows) {
       const h = heights(row, this.f.r);
-      if (this.y - h < MARGIN.bottom) { this.newPage(); drawRow(head, this.f.b, INK.text); }
+      if (this.y - h < MARGIN.bottom) { this.newPage(); if (!opts.noHead) drawRow(head, this.f.b, INK.text); }
       drawRow(row, opts.fontFor ? this.f[opts.fontFor(row)] : this.f.r, opts.color ?? INK.text);
     }
     this.y -= opts.gap ?? 8;

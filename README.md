@@ -143,6 +143,22 @@ follow the form in use in the Faculty of Engineering.
 
 **Cover and contents** can be left out.
 
+**Form ASCV, for Reader and Professor.** Chapter 3 says each external assessor receives
+the candidate's curriculum vitae on Form ASCV with the list of publications. When the
+rank sought is Reader or Professor (or the research-fellow equivalents):
+
+* **In the booklet,** the ASCV follows the assessment table. It takes the Yellow Book's
+  own sections and wording, filled from the dossier, and ends with the list of
+  publications.
+* **On its own,** it can be downloaded from the Booklet tab, as PDF or Word, for the
+  packets sent to the assessors.
+* **Where its entries come from:**
+  * sections B4 (editorship, papers reviewed, invited book reviews) and B5 (external
+    examinerships, learned societies, prizes and awards) come from tab 7, *Administration
+    and recognition*;
+  * postgraduate supervisions are drawn from the supervisions entered in tab 5.
+* **Empty sections** keep two ruled rows, so the form reads as the form.
+
 **Two editions:**
 
 * the **submission copy**: the forms and documents only;
@@ -242,7 +258,7 @@ the same Wi-Fi.
 
 ```bash
 npm install                 # the libraries, for the tests (the site itself uses vendor/)
-npm test                    # engine, record, sessions, staff number, booklet: 69 tests
+npm test                    # engine, record, sessions, staff number, booklet: 71 tests
 geckodriver --port 4444 &   # for the browser suites
 ./serve.sh 8000 &
 npm run smoke               # a candidate from an empty device to a downloaded booklet
@@ -284,8 +300,6 @@ tests/, tools/                unit tests, browser suites, build scripts
 
 * **Tutors:** the candidate fills Form TSAP Section A. Section B's teaching-load figures
   are left for the scorer, as the form intends.
-* **Form ASCV:** the curriculum vitae sent to external assessors for Reader and Professor
-  is not generated yet.
 * **Not an official UNN service.** The Yellow Book's committees decide every case.
 
 ## Licences

@@ -207,6 +207,80 @@ export const LISTS = {
   },
 };
 
+/* Form ASCV, B4 and B5: what the external assessors are shown for Reader and Professor. */
+const ASCV_NOTE = 'Shown on Form ASCV, the curriculum vitae sent to the external assessors for Reader and Professor (Ch. 3).';
+const yearish = { type: 'text', inputmode: 'numeric', placeholder: 'e.g. 2021' };
+Object.assign(LISTS, {
+  editorships: {
+    title: 'Editorship of reputable journals', noun: 'editorship', step: 'admin', section: 'ASCV B4(a)',
+    intro: ASCV_NOTE,
+    fields: [
+      { key: 'journal', label: 'Journal', type: 'text', required: true },
+      { key: 'role', label: 'Role', type: 'select', options: ['Editor-in-Chief', 'Editor', 'Associate Editor', 'Guest Editor', 'Member, Editorial Board'].map((v) => ({ value: v, label: v })), blank: 'Choose' },
+      { key: 'from', label: 'From (year)', ...yearish },
+      { key: 'to', label: 'To (year)', ...yearish, placeholder: 'empty if current' },
+    ],
+    summary: (e) => `${e.role ? `${e.role}, ` : ''}${e.journal}${e.from ? ` · ${e.from}–${e.to || 'date'}` : ''}`,
+    slots: () => [],
+  },
+  reviews: {
+    title: 'Papers reviewed for reputable journals', noun: 'review', step: 'admin', section: 'ASCV B4(b)',
+    intro: ASCV_NOTE,
+    fields: [
+      { key: 'title', label: 'Title of the paper reviewed', type: 'text', required: true },
+      { key: 'journal', label: 'Journal', type: 'text', required: true },
+      { key: 'date', label: 'Year (or date)', ...yearish },
+    ],
+    summary: (e) => `${e.title} · ${e.journal}${e.date ? ` · ${e.date}` : ''}`,
+    slots: () => [],
+  },
+  book_reviews: {
+    title: 'Invited book reviews', noun: 'book review', step: 'admin', section: 'ASCV B4(c)',
+    intro: ASCV_NOTE,
+    fields: [
+      { key: 'title', label: 'Title of the book reviewed', type: 'text', required: true },
+      { key: 'requested_by', label: 'At the request of', type: 'text' },
+      { key: 'date', label: 'Year (or date)', ...yearish },
+    ],
+    summary: (e) => `${e.title}${e.requested_by ? ` · for ${e.requested_by}` : ''}${e.date ? ` · ${e.date}` : ''}`,
+    slots: () => [],
+  },
+  external_exams: {
+    title: 'External examinerships', noun: 'examinership', step: 'admin', section: 'ASCV B5(a)',
+    intro: ASCV_NOTE,
+    fields: [
+      { key: 'level', label: 'Level', type: 'select', options: [{ value: 'Undergraduate', label: 'Undergraduate' }, { value: 'Postgraduate', label: 'Postgraduate' }], blank: 'Choose' },
+      { key: 'examination', label: 'Examination', type: 'text', required: true, placeholder: 'e.g. B.Eng. Mechanical Engineering; Ph.D. thesis' },
+      { key: 'institution', label: 'Institution', type: 'text', required: true },
+      { key: 'date', label: 'Year (or date)', ...yearish },
+    ],
+    summary: (e) => `${e.examination}${e.level ? ` (${e.level.toLowerCase()})` : ''} · ${e.institution}${e.date ? ` · ${e.date}` : ''}`,
+    slots: () => [],
+  },
+  memberships: {
+    title: 'Membership of learned societies', noun: 'membership', step: 'admin', section: 'ASCV B5(b)',
+    intro: ASCV_NOTE,
+    fields: [
+      { key: 'grade', label: 'Membership or fellowship', type: 'select', options: ['Fellow', 'Member', 'Associate Member', 'Graduate Member', 'Honorary Member'].map((v) => ({ value: v, label: v })), blank: 'Choose' },
+      { key: 'body', label: 'Learned society', type: 'text', required: true, placeholder: 'e.g. Nigerian Society of Engineers' },
+      { key: 'date', label: 'Since (year)', ...yearish },
+    ],
+    summary: (e) => `${e.grade ? `${e.grade}, ` : ''}${e.body}${e.date ? ` · since ${e.date}` : ''}`,
+    slots: () => [],
+  },
+  awards: {
+    title: 'Academic and professional prizes and awards', noun: 'award', step: 'admin', section: 'ASCV B5',
+    intro: ASCV_NOTE,
+    fields: [
+      { key: 'award', label: 'Prize or award', type: 'text', required: true },
+      { key: 'awarded_by', label: 'Awarded by', type: 'text' },
+      { key: 'date', label: 'Year (or date)', ...yearish },
+    ],
+    summary: (e) => `${e.award}${e.awarded_by ? ` · ${e.awarded_by}` : ''}${e.date ? ` · ${e.date}` : ''}`,
+    slots: () => [],
+  },
+});
+
 /** The offices offered for each kind of service (Table 19). */
 export function officeOptions(kind) {
   const list = {
@@ -225,7 +299,7 @@ export const STEPS = [
   { id: 'publications', label: 'Publications and creative works', short: 'Works', lists: ['items'] },
   { id: 'teaching', label: 'Teaching and experience', short: 'Teaching', lists: ['teaching', 'professional', 'leave', 'institutes', 'supervisions'] },
   { id: 'conferences', label: 'Conferences', short: 'Conf.', lists: ['conferences'] },
-  { id: 'admin', label: 'Administration', short: 'Admin', lists: ['admin'] },
+  { id: 'admin', label: 'Administration and recognition', short: 'Admin', lists: ['admin', 'editorships', 'reviews', 'book_reviews', 'external_exams', 'memberships', 'awards'] },
   { id: 'run', label: 'Appraisal', short: 'Appraise' },
   { id: 'booklet', label: 'Booklet', short: 'Booklet' },
 ];

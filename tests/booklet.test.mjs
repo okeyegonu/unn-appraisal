@@ -230,3 +230,42 @@ test('original page sizes: each document keeps its own size, and the booklet is 
   const pg = back.getPage(one.partPages[at].first);
   assert.deepEqual(pg.getSize(), { width: 595, height: 842 }, 'the sample documents are A4');
 });
+
+test('Form ASCV comes after the assessment table for Reader and Professor only', async () => {
+  const { d } = await dossierWithFiles();
+  assert.ok(!planBooklet(d, assess(d), fields).parts.some((p) => p.kind === 'ascv'), 'not for Senior Lecturer');
+  d.track.current_level = 3;
+  d.track.target_level = 4;
+  const kinds = planBooklet(d, assess(d), fields).parts.map((p) => p.kind);
+  assert.equal(kinds[kinds.indexOf('assessment') + 1], 'ascv');
+});
+
+test('Form ASCV fills its sections from the dossier, B4 and B5 included, and renders on its own', async () => {
+  const docx = await import('docx');
+  const { d, blobs } = await dossierWithFiles();
+  d.track.current_level = 4;
+  d.track.target_level = 5;
+  d.editorships = [{ id: 'e1', journal: 'Nigerian Journal of Technology', role: 'Associate Editor', from: '2020', to: '', evidence: {} }];
+  d.external_exams = [{ id: 'x1', examination: 'Ph.D. thesis', level: 'Postgraduate', institution: 'University of Lagos', date: '2024', evidence: {} }];
+  d.memberships = [{ id: 'm1', grade: 'Fellow', body: 'Nigerian Society of Engineers', date: '2019', evidence: {} }];
+  d.supervisions = [{ id: 's1', student: 'U. Obi', project: 'Creep of laterite', degree: 'Ph.D.', date: '2023', evidence: {} },
+    { id: 's2', student: 'N. Eze', degree: 'B.Eng.', date: '2023', evidence: {} }];
+  const plan = planBooklet(d, assess(d), fields, { only: 'ascv' });
+  assert.deepEqual(plan.parts.map((p) => p.kind), ['ascv']);
+  const a = plan.parts[0];
+  const block = (t) => a.sections.flatMap((s) => s.blocks).find((b) => b.title && b.title.startsWith(t));
+  assert.deepEqual(block('Editorship').rows, [['Nigerian Journal of Technology (Associate Editor)', '2020 – date']]);
+  assert.equal(block('Successful Postgraduate').rows.length, 1, 'undergraduate supervision is not postgraduate');
+  assert.equal(block('Membership of Learned').rows[0][1], 'Nigerian Society of Engineers');
+  assert.ok(a.publications.length > 0, 'the list of publications goes with it');
+  const pdf = await renderPdf(plan, env(blobs));
+  const again = await renderPdf(plan, env(blobs));
+  assert.ok(Buffer.from(pdf.bytes).equals(Buffer.from(again.bytes)));
+  const png = Uint8Array.from(Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=', 'base64'));
+  const { renderDocx } = await import('../src/booklet/docx.js');
+  const w = await renderDocx(plan, pdf, { docx, rasterize: async () => png });
+  const text = (await mammoth.extractRawText({ buffer: Buffer.from(w) })).value;
+  assert.match(text, /FORM ASCV ACADEMIC STAFF CURRICULUM VITAE/);
+  assert.match(text, /Nigerian Journal of Technology \(Associate Editor\)/);
+  assert.match(text, /LIST OF PUBLICATIONS/);
+});

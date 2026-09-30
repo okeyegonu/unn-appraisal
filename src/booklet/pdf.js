@@ -94,6 +94,11 @@ export async function renderPdf(plan, env) {
         contents.push({ indent: 0, label: part.title.replace(/^ASSESSMENT OF .*? \(FOR /, 'Assessment table for the internal assessors (for ').replace(/\)$/, ')'), page: start });
         break;
       }
+      case 'ascv': {
+        drawAscv(pager(), part);
+        contents.push({ indent: 0, label: `Form ASCV: academic staff curriculum vitae, with the list of publications (for the external assessors)`, page: start, form: true });
+        break;
+      }
       case 'divider': {
         const p = pager();
         p.newPage();
@@ -169,7 +174,7 @@ export async function renderPdf(plan, env) {
     const y = small ? 5 : 16;
     const size = small ? 7 : 8;
     const left = fit(safe(plan.footer || '', f.r), f.r, size, width / 2);
-    const right = `Booklet page ${i + 1} of ${total}`;
+    const right = `${plan.pageLabel || 'Booklet page'} ${i + 1} of ${total}`;
     // A white strip behind the footer keeps it legible over a document kept at its own size.
     const lw = f.r.widthOfTextAtSize(left.text, left.size);
     const rw = f.r.widthOfTextAtSize(right, size);
@@ -286,6 +291,46 @@ function drawChecklist(p, part) {
   if (!part.entries.length) { p.text('Every required document is attached.', { font: 'b', size: 11 }); return; }
   p.table([{ head: 'Section', width: 0.1 }, { head: 'Entry', width: 0.38 }, { head: 'Missing', width: 0.52 }],
     part.entries.map((e) => [e.section, e.what, e.missing.join('\n')]), { size: 9 });
+}
+
+/* ------------------------------------------------------------ Form ASCV */
+
+function drawAscv(p, part) {
+  p.newPage();
+  p.text('UNIVERSITY OF NIGERIA', { font: 'b', size: 12, align: 'center', gap: 2 });
+  p.text(part.title, { font: 'b', size: 12, align: 'center', gap: 6 });
+  p.text(part.note, { size: 10.5, gap: 10 });
+  const blankRows = (n, cols) => Array.from({ length: n }, () => Array(cols).fill(''));
+  for (const sec of part.sections) {
+    p.ensure(60);
+    p.text(sec.head, { font: 'b', size: 11, gap: 6 });
+    for (const b of sec.blocks) {
+      if (b.kv) {
+        for (const [lab, k, v] of b.kv) p.labelled(lab, `${k}: ${v || ''}`, { size: 10.5, labelWidth: 30, color: INK.fill, gap: 3 });
+        continue;
+      }
+      if (b.title) p.labelled(b.label || '', b.title, { size: 10.5, labelWidth: 30, font: b.bold ? 'b' : 'r', gap: 3 });
+      if (b.lines) {
+        const ls = b.lines.length ? b.lines : ['', ''];
+        p.table([{ head: '', width: 1 }], ls.map((x) => [x]), { size: 10, color: INK.fill, gap: 8, noHead: true });
+      }
+      if (b.cols) {
+        const rows = b.rows.length ? b.rows.map((r) => r.map((x) => x ?? '')) : blankRows(2, b.cols.length);
+        p.table(b.cols.map((h) => ({ head: h, width: 1 / b.cols.length })), rows, { size: 10, color: INK.fill, gap: 8 });
+      }
+      if (b.after) p.text(b.after, { font: 'i', size: 9.5, align: 'center', gap: 6 });
+    }
+  }
+  p.newPage();
+  p.text('LIST OF PUBLICATIONS', { font: 'b', size: 12, align: 'center', gap: 4 });
+  p.text('In chronological order within the categories of Form ASAP/1, B2 (Ch. 3 §3(h)).', { font: 'i', size: 9.5, align: 'center', gap: 10, color: INK.muted });
+  if (!part.publications.length) p.text('None listed.', { size: 10.5 });
+  for (const g of part.publications) {
+    p.ensure(40);
+    p.text(g.heading, { font: 'b', size: 11, gap: 4 });
+    g.entries.forEach((e, i) => p.labelled(`${i + 1}.`, e, { size: 10.5, color: INK.fill, gap: 4 }));
+    p.space(6);
+  }
 }
 
 /* ------------------------------------------------------- assessment table */
