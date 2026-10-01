@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { assess, evaluateAt, tracksFor, rawScore, weightingFactor, inadmissibility, yearsBetween } from '../src/engine.js';
+import { assess, evaluateAt, tracksFor, rawScore, weightingFactor, inadmissibility, yearsBetween, quickCheck, stepRequirements } from '../src/engine.js';
 import { TABLE_1, CRITERIA, CADRES, ITEM_TYPES, GRADES } from '../src/rulebook.js';
 import { lecturerOneToSenior, article, clone } from './fixtures.mjs';
 
@@ -276,4 +276,73 @@ test('every cadre evaluates at every level without throwing', () => {
       assert.ok(e.total >= 0 && e.total <= 100, `${cadre} ${l}`);
     }
   }
+});
+
+/* ------------------------------------------------- quick eligibility check */
+
+
+test('quick check: a Lecturer I who meets every condition for Senior Lecturer is eligible to apply', () => {
+  const d = lecturerOneToSenior();
+  d.quick = { phd: 'yes', articles: 6, first_or_corresponding: 4, indexed_major: 3, thomson_reuters: 1, indexed_first: 2, evaluation: 80, conf_below_sl: 5 };
+  const r = quickCheck(d);
+  assert.equal(r.verdict, 'eligible', JSON.stringify(r.checks.filter((c) => c.status !== 'pass')));
+  assert.equal(r.rank, 'Senior Lecturer');
+});
+
+test('quick check: one short condition makes it "not yet", and names it', () => {
+  const d = lecturerOneToSenior();
+  d.quick = { phd: 'yes', articles: 6, first_or_corresponding: 4, indexed_major: 3, thomson_reuters: 0, indexed_first: 2, evaluation: 80, conf_below_sl: 5 };
+  const r = quickCheck(d);
+  assert.equal(r.verdict, 'not_yet');
+  assert.deepEqual(r.checks.filter((c) => c.status === 'fail').map((c) => c.ref), ['Ch. 2 C(3)']);
+});
+
+test('quick check: a patent stands in for one Thomson Reuters article', () => {
+  const d = lecturerOneToSenior();
+  d.quick = { phd: 'yes', articles: 6, first_or_corresponding: 4, indexed_major: 1, thomson_reuters: 0, indexed_first: 1, evaluation: 80, patent: 'yes', conf_below_sl: 5 };
+  assert.equal(quickCheck(d).verdict, 'eligible');
+});
+
+test('quick check: unanswered numbers make it incomplete; the thresholds are the full appraisal\'s', () => {
+  const d = lecturerOneToSenior();
+  d.quick = {};
+  d.track.current_level = 4; d.track.target_level = 5;
+  const r = quickCheck(d);
+  assert.equal(r.verdict, 'incomplete');
+  assert.ok(r.checks.some((c) => /25 published journal articles/.test(c.label)));
+  assert.ok(r.checks.some((c) => /10 as first-named/.test(c.label)));
+  assert.ok(r.checks.some((c) => /8 major articles/.test(c.label)));
+});
+
+test('quick check: a double jump also asks for five years in the current post', () => {
+  const d = lecturerOneToSenior();
+  d.track.current_level = 1; d.track.target_level = 3; d.track.post_start_date = '2023-10-01';
+  d.quick = { phd: 'yes', articles: 6, first_or_corresponding: 4, indexed_major: 3, thomson_reuters: 1, indexed_first: 2, evaluation: 80, conf_below_sl: 5 };
+  const r = quickCheck(d);
+  assert.equal(r.verdict, 'not_yet');
+  assert.match(r.checks.find((c) => c.status === 'fail').label, /5 years/);
+});
+
+test('what each step requires: the lecturing ladder, from the same rulebook as the engine', () => {
+  const { ranks, rows } = stepRequirements('lecturing');
+  assert.deepEqual(ranks, ['Lecturer II', 'Lecturer I', 'Senior Lecturer', 'Reader', 'Professor']);
+  const row = (l) => rows.find((r) => r.label.startsWith(l)).values;
+  assert.deepEqual(row('Years since'), ['1', '3', '3', '3', '3']);
+  assert.deepEqual(row('Pass mark'), ['60', '60', '60', '65', '70']);
+  assert.deepEqual(row('Journal articles'), ['–', '2', '5', '20', '25']);
+  assert.deepEqual(row('Of which Thomson Reuters'), ['–', '–', '1', '2', '3']);
+  assert.deepEqual(row('Ph.D.'), ['–', '–', 'Required', 'Required', 'Required']);
+  assert.deepEqual(row('External assessors'), ['–', '–', '–', 'Two or three positive reports', 'Two or three positive reports']);
+});
+
+test('quick check: conference papers read count 1 each below Senior Lecturer, ½ each from it', () => {
+  const d = lecturerOneToSenior();
+  d.track.current_level = 3; d.track.target_level = 4; d.track.last_promotion_date = '2021-10-01';
+  d.quick = { phd: 'yes', articles: 20, first_or_corresponding: 6, indexed_major: 5, thomson_reuters: 2, indexed_first: 2, evaluation: 80, conf_below_sl: 3, conf_from_sl: 3 };
+  const c = () => quickCheck(d).checks.find((x) => /Conference papers/.test(x.label));
+  assert.equal(c().have, '4.5');
+  assert.equal(c().status, 'fail', 'Reader needs 5 points');
+  d.quick.conf_from_sl = 4;
+  assert.equal(c().status, 'pass');
+  assert.equal(quickCheck(d).verdict, 'eligible');
 });

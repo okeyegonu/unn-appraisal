@@ -138,7 +138,8 @@ export async function renderDocx(plan, pdf, env) {
                 : p.kind === 'list' || p.kind === 'continuation' || p.kind === 'divider' ? p.title
                   : p.kind === 'report' ? 'Self-assessment against the Yellow Book' : p.kind === 'checklist' ? 'Checklist of documents'
                     : p.kind === 'assessment' ? 'Assessment table for the internal assessors'
-                      : p.kind === 'ascv' ? 'Form ASCV: academic staff curriculum vitae, with the list of publications' : null;
+                      : p.kind === 'ascv' ? 'Form ASCV: academic staff curriculum vitae, with the list of publications'
+                        : p.kind === 'primafacie' ? 'Prima facie assessment by the candidate' : null;
           if (label) text.push(para(`${label}${s && s.count ? `  ....  ${s.first + 1}` : ''}`, { size: 10, after: 40, indent: p.kind === 'form' ? 0 : p.kind === 'exhibit' || p.kind === 'exhibit-ref' ? 720 : 360, bold: p.kind === 'form' }));
         });
         flushText();
@@ -207,6 +208,26 @@ export async function renderDocx(plan, pdf, env) {
             new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, columnWidths: cols.map((c) => Math.round(c.w * (LEGAL.height - 1200))), rows }),
           ],
         });
+        break;
+      }
+      case 'primafacie': {
+        text.push(para(part.title, { center: true, bold: true, size: 13 }));
+        for (const [k, v] of part.rows) text.push(new Paragraph({ spacing: { after: 40 }, children: [
+          new TextRun({ text: `${k}: `, bold: true, size: 21, font: 'Times New Roman' }), new TextRun({ text: v || '', size: 21, color: INK, font: 'Times New Roman' })] }));
+        text.push(para(part.statement, { italic: true, size: 9.5, color: '595959' }));
+        for (const e of part.evaluations) {
+          text.push(para(e.heading, { bold: true, size: 11 }));
+          text.push(table(['Criterion (Table 1)', 'Minimum', 'Maximum', 'Claimed'], [...e.criteria, ['Total', '', '100', e.total]], { color: INK }));
+          text.push(para(''));
+          text.push(table(['Condition', "Candidate's position", 'Met?', 'Source'], e.gates, { size: 9, color: INK }));
+          text.push(para(''));
+        }
+        text.push(para(part.conclusion, { bold: true, size: 11.5 }));
+        if (part.note) text.push(para(part.note, { size: 9.5, color: '595959' }));
+        text.push(para(''));
+        text.push(para('______________________________          ____________________', { after: 0 }));
+        text.push(para('Signature of Candidate                                   Date', { size: 9.5 }));
+        flushText();
         break;
       }
       case 'ascv': {

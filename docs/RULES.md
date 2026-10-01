@@ -266,7 +266,7 @@ to the Appointments and Promotions Committee (Ch. 3 §2(c)).
 
 For Reader and Professor, a pass means a *prima facie* case for the University Appraisals
 Committee to send the papers to external assessors. Promotion then needs two or three
-positive reports out of three (Ch. 3 §3(k)). The system says this plainly and never
+positive reports out of three (Ch. 3 §3(l)). The system says this plainly and never
 reports a Reader or Professor pass as a promotion.
 
 ## 8. What the system does not decide

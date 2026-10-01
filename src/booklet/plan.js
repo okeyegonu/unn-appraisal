@@ -87,6 +87,7 @@ export function planBooklet(d, assessment, fields, options = {}) {
   const arrangement = pick('arrangement', 'arrangement', 'sandwich') === 'forms_first' ? 'forms_first' : 'sandwich';
   const withCover = pick('cover', 'cover', true) !== false;
   const estimates = Boolean(pick('estimates', 'assessment_estimates', false));
+  const primaFacie = pick('primaFacie', 'prima_facie', true) !== false;
   const pageSizes = pick('pageSizes', 'page_sizes', 'fit') === 'original' ? 'original' : 'fit';
   const cadre = d.track.cadre;
   const ranks = CADRES[cadre].ranks;
@@ -166,6 +167,10 @@ export function planBooklet(d, assessment, fields, options = {}) {
   });
   if (withCover) parts.push({ kind: 'contents' });
 
+  // The candidate's prima facie assessment opens the booklet, so whoever opens it sees
+  // first whether the case is made (on by default; at Dr Achebe's suggestion).
+  if (primaFacie && assessment?.evaluations?.length) parts.push(primaFaciePart(d, assessment, ranks, yearLabel, current, target));
+
   if (edition === 'working' && assessment?.evaluations?.length) {
     parts.push({ kind: 'report', assessment, ranks, criteriaOrder: CRITERIA, labels: CRITERION_LABELS, items: d.items });
     parts.push({ kind: 'checklist', entries: checklist(d) });
@@ -228,7 +233,7 @@ export function planBooklet(d, assessment, fields, options = {}) {
     const table = assessmentPart(d, listed, assessment?.evaluations?.[assessment.evaluations.length - 1], estimates, target);
     if (table) parts.push(table);
     // Form ASCV and the list of publications go to the external assessors for Reader and
-    // Professor (Ch. 3 §3(h), (i)); the booklet carries them after the assessment table.
+    // Professor (Ch. 3 §3(j)); the booklet carries them after the assessment table.
     if (needsAscv) parts.push(ascvPart(d, ranks, listed, quals, teachingRows(d)));
     parts.push(...queue);
   };
@@ -531,11 +536,54 @@ function assessmentPart(d, listed, evaluation, estimates, target) {
   };
 }
 
+/* --------------------------------------------- prima facie assessment */
+
+const STATUS_WORD = { pass: 'Yes', fail: 'No', unknown: 'To be confirmed', warn: 'See note' };
+
+/**
+ * The candidate's prima facie assessment: their own reckoning of the case under the
+ * Yellow Book, on one page at the front of the booklet, signed by them. The committees decide
+ * (Ch. 3 §3(k), (m)); this states what the candidate claims and on what grounds.
+ */
+export function primaFaciePart(d, a, ranks, yearLabel, current, target) {
+  const evaluations = a.evaluations.map((e) => ({
+    heading: `${e.rank} (${e.table}): pass mark ${e.passMark}`,
+    criteria: CRITERIA.map((k) => [CRITERION_LABELS[k], String(e.criteria[k].min || ''), String(e.criteria[k].max), String(e.criteria[k].score)]),
+    total: String(e.total),
+    passMark: String(e.passMark),
+    gates: e.gates.map((g) => [g.label, g.detail || '', STATUS_WORD[g.status] || g.status, g.ref]),
+  }));
+  if (a.track.kind === 'double') {
+    const via = a.evaluations[0];
+    evaluations[0].gates.push([`95 or more at ${via.rank}, to be considered for ${ranks[a.track.to]}`, String(via.total), via.total >= 95 ? 'Yes' : 'No', 'Ch. 2 §2']);
+    evaluations[0].gates.push([a.tenure.label, a.tenure.detail, STATUS_WORD[a.tenure.status], a.tenure.ref]);
+  }
+  let conclusion;
+  if (a.outcome === 'pass' && a.reaches != null) {
+    conclusion = `On this reckoning, I have a prima facie case for promotion to ${ranks[a.reaches]}${a.track.kind === 'double' && a.reaches === a.track.to ? ' (a double jump)' : ''}.`;
+  } else if (a.outcome === 'incomplete') {
+    conclusion = `On this reckoning, my case for ${target} is complete except for the conditions marked "To be confirmed" above.`;
+  } else {
+    const short = a.evaluations[a.evaluations.length - 1].gates.filter((g) => g.status === 'fail').map((g) => g.label.toLowerCase());
+    conclusion = `On this reckoning, my case for ${target} is not yet complete${short.length ? `: ${short.join('; ')}` : ''}.`;
+  }
+  return {
+    kind: 'primafacie',
+    title: 'PRIMA FACIE ASSESSMENT BY THE CANDIDATE',
+    rows: [['Name', d.candidate.name], ['Staff No', d.candidate.staff_no], ['Department', [d.candidate.department, d.candidate.faculty].filter(Boolean).join(', ')],
+      ['Present post', current], ['Post sought', target + (a.track.kind === 'double' ? ` (double jump, via ${ranks[a.track.via]})` : '')], ['Appraisal year', yearLabel]],
+    statement: "My own reckoning of my case under the Guidelines for Appointments and Promotions of Academic Staff (the Yellow Book), 5th edition, for the convenience of the Appraisals Committees, who decide. The score for each work is in the assessment table that follows.",
+    evaluations,
+    conclusion,
+    note: a.note,
+  };
+}
+
 /* ------------------------------------------------------------ Form ASCV */
 
 /**
  * Form ASCV, the academic staff curriculum vitae (Yellow Book, ch. 5), with the list of
- * publications that goes with it to the external assessors (Ch. 3 §3(h)). Sections are
+ * publications that goes with it to the external assessors (Ch. 3 §3(j)). Sections are
  * in the form's own order and wording; an empty section keeps two ruled rows.
  */
 export function ascvPart(d, ranks, listed, quals, teachRows) {

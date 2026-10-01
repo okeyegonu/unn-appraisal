@@ -94,6 +94,11 @@ export async function renderPdf(plan, env) {
         contents.push({ indent: 0, label: part.title.replace(/^ASSESSMENT OF .*? \(FOR /, 'Assessment table for the internal assessors (for ').replace(/\)$/, ')'), page: start });
         break;
       }
+      case 'primafacie': {
+        drawPrimaFacie(pager(), part);
+        contents.push({ indent: 0, label: 'Prima facie assessment by the candidate', page: start, form: true });
+        break;
+      }
       case 'ascv': {
         drawAscv(pager(), part);
         contents.push({ indent: 0, label: `Form ASCV: academic staff curriculum vitae, with the list of publications (for the external assessors)`, page: start, form: true });
@@ -293,6 +298,41 @@ function drawChecklist(p, part) {
     part.entries.map((e) => [e.section, e.what, e.missing.join('\n')]), { size: 9 });
 }
 
+/* --------------------------------------------- prima facie assessment */
+
+function drawPrimaFacie(p, part) {
+  p.newPage();
+  p.text(part.title, { font: 'b', size: 13, align: 'center', gap: 10 });
+  for (const [k, v] of part.rows) p.labelled(`${k}:`, v || '', { size: 10.5, labelWidth: 92, color: INK.fill, gap: 2 });
+  p.space(6);
+  p.text(part.statement, { font: 'i', size: 9.5, color: INK.muted, gap: 10 });
+  for (const e of part.evaluations) {
+    p.ensure(90);
+    p.text(e.heading, { font: 'b', size: 11, gap: 5 });
+    p.table([
+      { head: 'Criterion (Table 1)', width: 0.52 }, { head: 'Minimum', width: 0.14, align: 'center' },
+      { head: 'Maximum', width: 0.14, align: 'center' }, { head: 'Claimed', width: 0.2, align: 'center' },
+    ], [...e.criteria, ['Total', '', '100', e.total]], { size: 10, color: INK.fill, fontFor: (r) => (r[0] === 'Total' ? 'b' : 'r') });
+    p.table([
+      { head: 'Condition', width: 0.42 }, { head: "Candidate's position", width: 0.22 },
+      { head: 'Met?', width: 0.14, align: 'center' }, { head: 'Source', width: 0.22 },
+    ], e.gates, { size: 9.5, color: INK.fill, fontFor: (r) => (r[2] === 'No' ? 'b' : 'r') });
+  }
+  p.ensure(110);
+  p.text(part.conclusion, { font: 'b', size: 11.5, gap: 8 });
+  if (part.note) p.text(part.note, { size: 9.5, color: INK.muted, gap: 18 });
+  p.ensure(40);
+  const y = p.y - 28;
+  const pg = p.page;
+  const line = (x, w, label) => {
+    pg.drawLine({ start: { x, y }, end: { x: x + w, y }, thickness: 0.6, color: p.color(INK.text) });
+    pg.drawText(label, { x, y: y - 12, size: 9.5, font: p.f.r, color: p.color(INK.text) });
+  };
+  line(MARGIN.left, 220, 'Signature of Candidate');
+  line(MARGIN.left + 290, 170, 'Date');
+  p.y = y - 24;
+}
+
 /* ------------------------------------------------------------ Form ASCV */
 
 function drawAscv(p, part) {
@@ -323,7 +363,7 @@ function drawAscv(p, part) {
   }
   p.newPage();
   p.text('LIST OF PUBLICATIONS', { font: 'b', size: 12, align: 'center', gap: 4 });
-  p.text('In chronological order within the categories of Form ASAP/1, B2 (Ch. 3 §3(h)).', { font: 'i', size: 9.5, align: 'center', gap: 10, color: INK.muted });
+  p.text('In chronological order within the categories of Form ASAP/1, B2 (Ch. 3 §3(j)).', { font: 'i', size: 9.5, align: 'center', gap: 10, color: INK.muted });
   if (!part.publications.length) p.text('None listed.', { size: 10.5 });
   for (const g of part.publications) {
     p.ensure(40);

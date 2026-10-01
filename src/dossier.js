@@ -42,7 +42,9 @@ export function emptyDossier() {
     institutes: [], supervisions: [], conferences: [], admin: [],
     editorships: [], reviews: [], book_reviews: [], external_exams: [], memberships: [], awards: [],
     attachments: {},
-    options: { fill_asap2_scores: false, arrangement: 'sandwich', page_sizes: 'fit', cover: true, assessment_estimates: false },
+    // The quick eligibility check in tab 1: a few numbers typed before any full entry.
+    quick: {},
+    options: { fill_asap2_scores: false, arrangement: 'sandwich', page_sizes: 'fit', cover: true, assessment_estimates: false, prima_facie: true },
   };
 }
 
@@ -314,11 +316,15 @@ export function normalize(raw) {
   const att = {};
   for (const [h, m] of Object.entries(raw.attachments || {})) if (HASH.test(h)) att[h] = cleanMeta(m);
   d.attachments = att;
+  const QUICK_NUMBERS = ['articles', 'first_or_corresponding', 'indexed_major', 'thomson_reuters', 'indexed_first', 'evaluation', 'in_language', 'conf_below_sl', 'conf_from_sl'];
+  for (const k of QUICK_NUMBERS) { const v = numOrNull(raw.quick?.[k]); if (v != null && v >= 0) d.quick[k] = v; }
+  for (const k of ['phd', 'patent']) if (raw.quick?.[k] === 'yes' || raw.quick?.[k] === 'no') d.quick[k] = raw.quick[k];
   d.options.fill_asap2_scores = Boolean(raw.options?.fill_asap2_scores);
   d.options.arrangement = raw.options?.arrangement === 'forms_first' ? 'forms_first' : 'sandwich';
   d.options.page_sizes = raw.options?.page_sizes === 'original' ? 'original' : 'fit';
   d.options.cover = raw.options?.cover !== false;
   d.options.assessment_estimates = Boolean(raw.options?.assessment_estimates);
+  d.options.prima_facie = raw.options?.prima_facie !== false;
   return d;
 }
 

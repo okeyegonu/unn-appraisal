@@ -111,7 +111,7 @@ export function renderRun(dossier, go) {
         a.track.kind === 'double' && reached === a.track.to ? h('p', {}, `A double jump, from ${ranks[a.track.from]} to ${rank}.`) : null,
         a.track.kind === 'double' && reached !== a.track.to ? h('p', {}, `The double jump to ${ranks[a.track.to]} is not reached this year (${stopped ? stopped.text : 'see above'}); the single step to ${rank} is.`) : null,
         h('p', {}, external
-          ? `By the Yellow Book your case for ${rank} is made. It now goes through your Department and Faculty to the University Appraisals Committee, which sends your papers to external assessors; the promotion is confirmed on two or three positive reports (Ch. 3 §3(k)).`
+          ? `By the Yellow Book your case for ${rank} is made. It now goes through your Department and Faculty to the University Appraisals Committee, which sends your papers to external assessors; the promotion is confirmed on two or three positive reports (Ch. 3 §3(l)).`
           : `By the Yellow Book your case for ${rank} is made. It now goes through your Department and Faculty to the Appointments and Promotions Committee, which approves the promotion (Ch. 3 §2(c)).`),
         h('div', { class: 'actions' }, h('button', { type: 'button', class: 'secondary', onclick: () => go('booklet') }, 'Make my booklet →'))));
       return;

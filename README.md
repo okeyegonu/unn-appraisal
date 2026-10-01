@@ -41,6 +41,26 @@ A double jump that stops short still reaches the intermediate rank, if that stag
 passed. The other cadres use the same machinery: Assistant Lecturer, full-time research
 fellows (Table 1B), research fellows who teach (1C), tutors (1D) and librarians (1E).
 
+## Before you start: do I qualify?
+
+Tab 1 answers this before any full entry (at the suggestion of Dr C. N. Achebe):
+
+* **What each step requires, at a glance.** The numbers to have before applying, for every
+  rank of any cadre, side by side: years since the last promotion, pass mark, the
+  publications score, journal articles (in all, as first or corresponding author, in ranked
+  journals, in Thomson Reuters journals), conference papers read, the Ph.D., and the
+  course evaluation. The Yellow Book has all of these, but scattered across Tables 1, 15
+  and 18 and Chapter 2. The rank you are seeking is highlighted.
+* **The quick check.** A few numbers for the rank you are seeking (articles, conference
+  papers, and so on) give one of two answers: *Qualified for appraisal to X*, or *Not
+  qualified for appraisal to X*, naming what is short. Conference papers count 1 point
+  each below Senior Lecturer and ½ each from Senior Lecturer (Table 18); the yearly
+  ceilings need dates, so the full appraisal settles them. The answers are kept in the
+  dossier.
+* **Prima facie assessment.** The booklet opens with the candidate's own prima facie
+  assessment (Ch. 3 §3(k),(m)): each criterion against its minimum, each condition, and
+  the conclusion, signed and dated. It can be turned off in the Booklet tab.
+
 ## The rules
 
 [`docs/RULES.md`](docs/RULES.md) states every rule the engine applies, as definitions and
@@ -70,7 +90,7 @@ by the University changes one value, not the code. Examples:
 
 These are the committees' judgements. The candidate enters them, and before assessment
 they are the candidate's own estimate. For Reader and Professor, meeting the criteria is
-a case for external assessment, never a promotion (Ch. 3 §3(k)), and the app says so.
+a case for external assessment, never a promotion (Ch. 3 §3(l)), and the app says so.
 
 ## The booklet
 

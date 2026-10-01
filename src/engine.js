@@ -550,7 +550,7 @@ export function assess(d, readings = READINGS) {
     return { outcome: 'no_track', headline: 'Choose a track: current rank and the rank sought.', evaluations: [] };
   }
   const reviewNote = (level) => (level >= 4
-    ? 'A pass is a prima facie case for the University Appraisals Committee to send the papers to external assessors; promotion needs two or three positive reports out of three (Ch. 3 §3(k)).'
+    ? 'A pass is a prima facie case for the University Appraisals Committee to send the papers to external assessors; promotion needs two or three positive reports out of three (Ch. 3 §3(l)).'
     : 'A pass goes to the Appointments and Promotions Committee through the Faculty (Ch. 3 §2(c)).');
 
   if (to - from === 1) {
@@ -594,4 +594,130 @@ export function assess(d, readings = READINGS) {
 
 function statusWord(s) {
   return s === 'pass' ? 'Meets the Yellow Book criteria' : s === 'incomplete' ? 'Incomplete: some facts are still needed' : 'Does not yet meet the criteria';
+}
+
+/* --------------------------------------------------- quick eligibility check */
+
+/**
+ * Am I eligible to apply? A one-minute check on the conditions that decide it, from a
+ * handful of numbers the candidate types in tab 1 (d.quick), before any full entry is
+ * made. It uses the same thresholds as the full appraisal (RULES §6). The score itself
+ * needs the full entries, so this answers only "eligible to apply", not "promotable".
+ *
+ *   quickCheck(d) -> { checks: [{ label, need, have, status, ref }], verdict, rank }
+ *   verdict: 'eligible' | 'not_yet' | 'incomplete' | 'no_track'
+ */
+export function quickCheck(d, readings = READINGS) {
+  const rd = { ...READINGS, ...readings };
+  const t = d.track || {};
+  const q = d.quick || {};
+  const ranks = CADRES[t.cadre]?.ranks;
+  const level = Number(t.target_level);
+  if (!ranks || !Number.isInteger(level) || !Number.isInteger(Number(t.current_level))) return { checks: [], verdict: 'no_track' };
+  const num = (v) => (v === '' || v == null || !Number.isFinite(Number(v)) ? null : Number(v));
+  const checks = [];
+  const add = (label, need, have, ok, ref) => checks.push({ label, need, have: have == null ? '' : String(have), status: have == null ? 'unknown' : ok ? 'pass' : 'fail', ref });
+  const endOfYear = Number.isInteger(t.appraisal_year) ? appraisalWindow(t.appraisal_year).end : null;
+
+  // Waiting period (and, for a double jump, five years in the current post).
+  const from = Number(t.current_level);
+  const wait = from === 0 ? WAITING_YEARS.fromLevel0 : WAITING_YEARS.default;
+  const waited = t.last_promotion_date && endOfYear ? yearsBetween(t.last_promotion_date, endOfYear) : null;
+  add(`At least ${wait} year(s) since your last promotion, by ${endOfYear ? `30 September ${endOfYear.slice(0, 4)}` : 'the end of the appraisal year'}`, `${wait}`, waited, waited >= wait, 'Ch. 2 §4');
+  if (level - from === 2) {
+    const inPost = t.post_start_date && endOfYear ? yearsBetween(t.post_start_date, endOfYear) : null;
+    add(`At least ${WAITING_YEARS.doubleJump} years' teaching in your current post (double jump)`, `${WAITING_YEARS.doubleJump}`, inPost, inPost >= WAITING_YEARS.doubleJump, 'Ch. 2 §2');
+  }
+
+  const journalRules = JOURNAL_RULE_CADRES.includes(t.cadre) && (t.cadre === 'lecturing' || rd.journalRulesBindResearchFellows);
+  if (journalRules) {
+    if (level > DOCTORATE_REQUIRED_ABOVE_LEVEL) {
+      const phd = q.phd === 'yes' ? true : q.phd === 'no' ? false : (d.qualifications || []).some((x) => x.kind === 'doctorate' || x.kind === 'fellowship') ? true : null;
+      add('A Ph.D. or relevant equivalent professional qualification', 'Yes', phd == null ? null : phd ? 'Yes' : 'No', phd === true, 'Ch. 2 C(5)');
+    }
+    const articles = num(q.articles);
+    const nig = Boolean(t.nigerian_languages) && level >= 3;
+    if (nig) {
+      add(`At least ${NIGERIAN_LANGUAGES_GATES.articles[level]} published articles`, String(NIGERIAN_LANGUAGES_GATES.articles[level]), articles, articles >= NIGERIAN_LANGUAGES_GATES.articles[level], 'Ch. 2 C(10)');
+      const inLang = num(q.in_language);
+      add(`Of which at least ${NIGERIAN_LANGUAGES_GATES.inNigerianLanguage[level]} in a Nigerian language`, String(NIGERIAN_LANGUAGES_GATES.inNigerianLanguage[level]), inLang, inLang >= NIGERIAN_LANGUAGES_GATES.inNigerianLanguage[level], 'Ch. 2 C(10)');
+    } else if (JOURNAL_GATES.articles[level] != null) {
+      add(`At least ${JOURNAL_GATES.articles[level]} published journal articles`, String(JOURNAL_GATES.articles[level]), articles, articles >= JOURNAL_GATES.articles[level], 'Ch. 2 C(6)');
+    }
+    if (JOURNAL_GATES.firstOrCorresponding[level] != null) {
+      const v = num(q.first_or_corresponding);
+      add(`At least ${JOURNAL_GATES.firstOrCorresponding[level]} as first-named or corresponding author`, String(JOURNAL_GATES.firstOrCorresponding[level]), v, v >= JOURNAL_GATES.firstOrCorresponding[level], 'Ch. 2 C(7)');
+    }
+    if (!nig && JOURNAL_GATES.indexedMajor[level] != null) {
+      const ix = num(q.indexed_major);
+      const tr = num(q.thomson_reuters);
+      const ixf = num(q.indexed_first);
+      const patent = q.patent === 'yes' ? 1 : 0;
+      add(`At least ${JOURNAL_GATES.indexedMajor[level]} major articles in Thomson Reuters/SJR/SNIP-ranked journals`, String(JOURNAL_GATES.indexedMajor[level]), ix == null ? null : ix + patent, ix + patent >= JOURNAL_GATES.indexedMajor[level], 'Ch. 2 C(2)');
+      add(`Of which at least ${JOURNAL_GATES.thomsonReuters[level]} Thomson Reuters (Clarivate)`, String(JOURNAL_GATES.thomsonReuters[level]), tr == null ? null : tr + patent, tr + patent >= JOURNAL_GATES.thomsonReuters[level], 'Ch. 2 C(3)');
+      add(`At least ${JOURNAL_GATES.indexedFirstOrCorresponding[level]} of the ranked ones as first-named or corresponding author`, String(JOURNAL_GATES.indexedFirstOrCorresponding[level]), ixf, ixf >= JOURNAL_GATES.indexedFirstOrCorresponding[level], 'Ch. 2 C(8)');
+    }
+  }
+  // Conference papers read: Table 1 minimum, at 1 point each below Senior Lecturer and ½ from
+  // Senior Lecturer (Table 18). The per-year ceilings need the dates, so the full appraisal decides.
+  const confMin = TABLE_1[t.cadre].conferences[level]?.min;
+  if (rd.otherTable1MinimaAreGates && confMin) {
+    const below = num(q.conf_below_sl);
+    const above = num(q.conf_from_sl);
+    const pts = below == null && above == null ? null : (below || 0) + 0.5 * (above || 0);
+    add(`Conference papers read worth at least ${confMin} points (1 each below Senior Lecturer, ½ each from Senior Lecturer)`, String(confMin), pts, pts >= confMin, `${TABLE_1[t.cadre].source}; Table 18 [R-10]`);
+  }
+  if (['lecturing', 'research_teaching', 'tutor'].includes(t.cadre)) {
+    const ev = num(q.evaluation);
+    add("Students' course evaluation for the appraisal year at least 50%", '50%', ev == null ? null : `${ev}%`, ev >= 50, 'Table 16 remark (c)');
+  }
+  const verdict = checks.some((c) => c.status === 'fail') ? 'not_yet' : checks.some((c) => c.status === 'unknown') ? 'incomplete' : 'eligible';
+  return { checks, verdict, rank: ranks[level] };
+}
+
+/* ------------------------------------------------------ what each step requires */
+
+/**
+ * The conditions for each step of a cadre's ladder, from the rulebook, for the table
+ * in tab 1 (at Dr Achebe's suggestion: the ordinary steps, not only the double jumps).
+ * Returns { ranks: [level 1..5 rank names], rows: [{ label, ref, values: [5 strings] }] }.
+ */
+export function stepRequirements(cadre, readings = READINGS) {
+  const rd = { ...READINGS, ...readings };
+  const ranks = CADRES[cadre].ranks;
+  const t = TABLE_1[cadre];
+  const levels = [1, 2, 3, 4, 5];
+  const journalRules = JOURNAL_RULE_CADRES.includes(cadre) && (cadre === 'lecturing' || rd.journalRulesBindResearchFellows);
+  const v = (arr) => levels.map((l) => (arr[l] == null ? '–' : String(arr[l])));
+  const rows = [
+    { label: 'Years since the last promotion', ref: 'Ch. 2 §4', values: levels.map((l) => String(l === 1 ? WAITING_YEARS.fromLevel0 : WAITING_YEARS.default)) },
+    { label: 'Pass mark (out of 100)', ref: t.source, values: v(t.pass) },
+    { label: 'Publications score, considered first', ref: `${t.source}; Ch. 2 §3`, values: levels.map((l) => (t.publications[l].min ? `${t.publications[l].min} or more` : '–')) },
+  ];
+  if (rd.otherTable1MinimaAreGates) {
+    rows.push({ label: 'Teaching/professional experience score', ref: `${t.source} [R-10]`, values: levels.map((l) => (t.teaching[l].min ? `${t.teaching[l].min} or more` : '–')) });
+    // As papers read: 1 point each below Senior Lecturer, ½ point each from Senior Lecturer (Table 18).
+    rows.push({ label: 'Conference papers read (with evidence)', ref: `${t.source}; Table 18 [R-10]`, values: levels.map((l) => {
+      const mn = t.conferences[l].min;
+      if (!mn) return '–';
+      return l <= 3 ? `${mn}` : `${mn * 2} (½ point each from Senior Lecturer; 1 each if read before)`;
+    }) });
+  }
+  if (journalRules) {
+    rows.push({ label: 'Ph.D. or equivalent professional qualification', ref: 'Ch. 2 C(5)', values: levels.map((l) => (l > DOCTORATE_REQUIRED_ABOVE_LEVEL ? 'Required' : '–')) });
+    rows.push({ label: 'Journal articles published', ref: 'Ch. 2 C(6)', values: v(JOURNAL_GATES.articles) });
+    rows.push({ label: 'As first-named or corresponding author', ref: 'Ch. 2 C(7)', values: v(JOURNAL_GATES.firstOrCorresponding) });
+    rows.push({ label: 'Major articles in Thomson Reuters/SJR/SNIP-ranked journals', ref: 'Ch. 2 C(2)', values: v(JOURNAL_GATES.indexedMajor) });
+    rows.push({ label: 'Of which Thomson Reuters (Clarivate)', ref: 'Ch. 2 C(3)', values: v(JOURNAL_GATES.thomsonReuters) });
+    rows.push({ label: 'Ranked ones as first-named or corresponding author', ref: 'Ch. 2 C(8)', values: v(JOURNAL_GATES.indexedFirstOrCorresponding) });
+    rows.push({ label: 'Points from published major journal articles', ref: 'Table 9 remark', values: v(JOURNAL_GATES.majorArticlePoints) });
+  }
+  if (TABLE_1[cadre].conferencePapersSinceLastPromotion) {
+    rows.push({ label: 'Conference papers since the last promotion', ref: 'Table 1B', values: v(TABLE_1[cadre].conferencePapersSinceLastPromotion) });
+  }
+  if (['lecturing', 'research_teaching', 'tutor'].includes(cadre)) {
+    rows.push({ label: "Students' course evaluation this year", ref: 'Table 16 remark (c)', values: levels.map(() => '50% or more') });
+  }
+  rows.push({ label: 'External assessors', ref: 'Ch. 3 §3(l)', values: levels.map((l) => (l >= 4 && cadre !== 'tutor' ? 'Two or three positive reports' : '–')) });
+  return { ranks: levels.map((l) => ranks[l]), rows };
 }

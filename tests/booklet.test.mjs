@@ -209,10 +209,12 @@ test('forms first: every form page, then the table, then the documents in sectio
   assert.ok(ids.indexOf('B1-2') < ids.findIndex((x) => x.startsWith('B2')) && ids.findIndex((x) => x.startsWith('B2')) < ids.indexOf('B4-1'), ids.join(' '));
 });
 
-test('without a cover there is no contents page, and the first page is a form', async () => {
+test('without a cover there is no contents page; the prima facie page, then the forms, come first', async () => {
   const { d, blobs } = await dossierWithFiles();
   const plan = planBooklet(d, assess(d), fields, { cover: false });
-  assert.equal(plan.parts[0].kind, 'form');
+  assert.equal(plan.parts[0].kind, 'primafacie');
+  assert.equal(plan.parts[1].kind, 'form');
+  assert.equal(planBooklet(d, assess(d), fields, { cover: false, primaFacie: false }).parts[0].kind, 'form');
   assert.ok(!plan.parts.some((p) => p.kind === 'contents'));
   const out = await renderPdf(plan, env(blobs));
   const back = await PDFLib.PDFDocument.load(out.bytes);
@@ -268,4 +270,36 @@ test('Form ASCV fills its sections from the dossier, B4 and B5 included, and ren
   assert.match(text, /FORM ASCV ACADEMIC STAFF CURRICULUM VITAE/);
   assert.match(text, /Nigerian Journal of Technology \(Associate Editor\)/);
   assert.match(text, /LIST OF PUBLICATIONS/);
+});
+
+test('the prima facie assessment opens the booklet, after the cover and contents', async () => {
+  const { d, blobs } = await dossierWithFiles();
+  const plan = planBooklet(d, assess(d), fields);
+  assert.deepEqual(plan.parts.slice(0, 3).map((p) => p.kind), ['cover', 'contents', 'primafacie']);
+  const pf = plan.parts[2];
+  assert.equal(pf.evaluations.length, 1);
+  assert.equal(pf.evaluations[0].criteria.length, 5);
+  assert.ok(pf.evaluations[0].gates.every((g) => ['Yes', 'No', 'To be confirmed', 'See note'].includes(g[2])));
+  assert.equal(pf.conclusion, 'On this reckoning, I have a prima facie case for promotion to Senior Lecturer.');
+  const out = await renderPdf(plan, env(blobs));
+  assert.equal(out.problems.length, 0);
+});
+
+test('a double jump shows both ranks, the 95-point rule and the five-year rule', async () => {
+  const { d } = await dossierWithFiles();
+  d.track.current_level = 1;
+  d.track.target_level = 3;
+  d.track.post_start_date = '2023-10-01';
+  const pf = planBooklet(d, assess(d), fields).parts.find((p) => p.kind === 'primafacie');
+  assert.equal(pf.evaluations.length, 2);
+  const g = pf.evaluations[0].gates.map((x) => x[0]);
+  assert.ok(g.some((x) => x.startsWith('95 or more at Lecturer I')) && g.some((x) => /5 years/.test(x)));
+  assert.match(pf.rows.find((r) => r[0] === 'Post sought')[1], /double jump, via Lecturer I/);
+});
+
+test('a case that is not made says what is short', async () => {
+  const { d } = await dossierWithFiles();
+  d.teaching.find((y) => y.session === 2025).evaluation_pct = 40;
+  const pf = planBooklet(d, assess(d), fields).parts.find((p) => p.kind === 'primafacie');
+  assert.match(pf.conclusion, /not yet complete: students' course evaluation/);
 });

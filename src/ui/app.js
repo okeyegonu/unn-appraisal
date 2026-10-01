@@ -8,7 +8,11 @@
  * is never touched by it (README, "Idempotency"; docs/RULES.md §10).
  */
 import { CADRES, EVIDENCE, ACCEPTED_FILES, ITEM_TYPES, NOT_LISTABLE } from '../rulebook.js';
-import { assess, tracksFor, missingEvidence } from '../engine.js';
+import { assess, tracksFor, missingEvidence, quickCheck, stepRequirements } from '../engine.js';
+import { JOURNAL_GATES, DOCTORATE_REQUIRED_ABOVE_LEVEL, JOURNAL_RULE_CADRES, TABLE_1, READINGS } from '../rulebook.js';
+
+/** The Table 1 conferences minimum for a rank, when the reading makes it a condition (R-10). */
+const TABLE_1_CONF_MIN = (cadre, level) => (READINGS.otherTable1MinimaAreGates ? TABLE_1[cadre]?.conferences[level]?.min || 0 : 0);
 import {
   emptyDossier, addEntry, updateEntry, removeEntry, attach, detach, pruneAttachments, referencedHashes, merge, normalize,
 } from '../dossier.js';
@@ -141,7 +145,11 @@ function renderMain() {
 function candidateStep() {
   const d = dossier;
   const setC = (k) => (ev) => commit({ ...dossier, candidate: { ...dossier.candidate, [k]: ev.target.value } });
-  const setT = (k, conv = (v) => v) => (ev) => { commit({ ...dossier, track: { ...dossier.track, [k]: conv(ev.target.type === 'checkbox' ? ev.target.checked : ev.target.value) } }); if (['cadre', 'mode', 'appraisal_year'].includes(k)) renderMain(); };
+  const setT = (k, conv = (v) => v) => (ev) => {
+    commit({ ...dossier, track: { ...dossier.track, [k]: conv(ev.target.type === 'checkbox' ? ev.target.checked : ev.target.value) } });
+    if (['cadre', 'mode', 'appraisal_year', 'nigerian_languages'].includes(k)) renderMain();
+    else refreshQuick?.(); // the dates feed the quick check's waiting periods
+  };
   const text = (label, k, attrs = {}) => h('div', { class: 'field' }, h('label', { for: `c-${k}` }, label),
     h('input', { id: `c-${k}`, type: 'text', value: d.candidate[k] ?? '', oninput: setC(k), autocomplete: attrs.autocomplete || 'off', ...attrs }));
   const tracks = tracksFor(d.track.cadre);
@@ -177,6 +185,7 @@ function candidateStep() {
       ),
       h('h2', {}, 'Choose the promotion you are seeking'),
       trackCards,
+      stepsTable(),
       h('div', { class: 'grid', style: 'margin-top:14px' },
         h('div', { class: 'field' }, h('label', { for: 't-last' }, 'Date of your last promotion or appointment'), h('input', { id: 't-last', type: 'date', value: d.track.last_promotion_date, oninput: setT('last_promotion_date') }),
           h('span', { class: 'help' }, 'Three years must have passed by 30 September of the appraisal year (one year from Assistant Lecturer) (Ch. 2 §4).')),
@@ -187,9 +196,100 @@ function candidateStep() {
         h('div', { class: 'field' }, h('span', { class: 'label' }, 'Nigerian languages'), h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: d.track.nigerian_languages, onchange: setT('nigerian_languages') }), 'I specialise in a Nigerian language (Ch. 2 C(10))')),
         d.track.mode === 'appointment' ? h('div', { class: 'field' }, h('label', { for: 't-int' }, 'Interview score (if known)'), h('input', { id: 't-int', type: 'number', min: 0, step: '0.5', value: d.track.interview_score ?? '', oninput: setT('interview_score', (v) => (v === '' ? null : Number(v))) }),
           h('span', { class: 'help' }, '40% of the qualification score is reserved for the interview (Table 2 note (a)(iii)).')) : null),
+      quickCheckCard(),
       h('h2', {}, 'Letter of your last promotion or appointment'),
       slotsView(null, null, { evidence: dossier.evidence }, ['promotion_letter'])),
   );
+}
+
+/**
+ * "Am I eligible to apply?" A few numbers, answered in a minute, before any full entry
+ * (at Dr Achebe's suggestion). Only the questions that matter for the rank sought are
+ * asked; the answer updates as they are typed. The numbers are kept in the dossier
+ * (d.quick), so they survive a reload and travel in backups.
+ */
+/**
+ * What each step requires: the conditions for every rank of the cadre, side by side, the
+ * rank sought highlighted (at Dr Achebe's suggestion). Open until a track is chosen.
+ */
+function stepsTable() {
+  // Any cadre can be looked at; the choice is only a view and is not saved.
+  let cadre = CADRES[dossier.track.cadre] ? dossier.track.cadre : 'lecturing';
+  const body = h('div', {});
+  const draw = () => {
+    const { ranks, rows } = stepRequirements(cadre);
+    const sought = cadre === dossier.track.cadre && Number.isInteger(dossier.track.target_level) ? dossier.track.target_level - 1 : -1;
+    const hi = (i) => (i === sought ? 'background:#eef7f2;font-weight:600' : '');
+    clear(body);
+    body.append(h('div', { class: 'table-wrap' }, h('table', { class: 'gates' },
+      h('thead', {}, h('tr', {}, h('th', {}, 'Condition'), ...ranks.map((r, i) => h('th', { style: hi(i) }, r)))),
+      h('tbody', {}, ...rows.map((row) => h('tr', {},
+        h('td', {}, row.label, ' ', h('span', { class: 'hint' }, `(${row.ref})`)),
+        ...row.values.map((x, i) => h('td', { style: hi(i) }, x))))))));
+  };
+  draw();
+  return h('details', { class: 'card', style: 'margin-top:14px', open: !Number.isInteger(dossier.track.target_level) },
+    h('summary', { style: 'cursor:pointer;font-weight:600' }, 'What each step requires, at a glance (Yellow Book, 5th edition)'),
+    h('p', { class: 'hint' }, 'The numbers to have before applying, for every rank, one step at a time. A double jump needs 95 or more at the rank in between, then the conditions of the higher rank, and five years in your current post (Ch. 2 §2).'),
+    h('div', { class: 'field' }, h('label', { for: 'steps-cadre' }, 'Cadre'),
+      select('steps-cadre', cadre, Object.entries(CADRES).map(([k, c]) => [k, c.label]), (e) => { cadre = e.target.value; draw(); })),
+    body);
+}
+
+let refreshQuick = null;
+function quickCheckCard() {
+  refreshQuick = null;
+  const t = dossier.track;
+  const level = t.target_level;
+  if (!Number.isInteger(level)) return null;
+  const cadre = t.cadre;
+  const journal = JOURNAL_RULE_CADRES.includes(cadre);
+  const nig = Boolean(t.nigerian_languages) && level >= 3;
+  const result = h('div', { 'aria-live': 'polite' });
+  const show = () => {
+    const r = quickCheck(dossier);
+    clear(result);
+    if (!r.checks.length) return;
+    const word = { pass: '✓', fail: '✗', unknown: '?' };
+    result.append(h('ul', { class: 'runlog' }, ...r.checks.map((c) => h('li', {},
+      h('span', { class: c.status === 'pass' ? 'mark-ok' : c.status === 'fail' ? 'mark-bad' : 'mark-q', 'aria-hidden': 'true' }, word[c.status]),
+      h('span', {}, c.label, c.have ? `: ${c.have}` : '', ' ', h('span', { class: 'hint' }, `(${c.ref})`))))));
+    const box = r.verdict === 'eligible'
+      ? h('div', { class: 'congrats', style: 'padding:12px 16px' }, h('b', {}, `Qualified for appraisal to ${r.rank}.`), h('p', { style: 'margin:4px 0 0' }, 'Every condition is met on these numbers. Now enter your work in tabs 2 to 7; the score comes from those entries.'))
+      : r.verdict === 'not_yet'
+        ? h('div', { class: 'verdict-bad', style: 'padding:12px 16px' }, h('b', {}, `Not qualified for appraisal to ${r.rank}.`), h('p', { style: 'margin:4px 0 0' }, `Short on: ${r.checks.filter((c) => c.status === 'fail').map((c) => c.label.charAt(0).toLowerCase() + c.label.slice(1)).join('; ')}.`))
+        : h('div', { class: 'verdict-q', style: 'padding:12px 16px' }, h('b', {}, 'Answer the questions marked ? to see whether you qualify for appraisal.'));
+    result.append(box);
+  };
+  const setQ = (k, v) => { commit({ ...dossier, quick: { ...dossier.quick, [k]: v } }); show(); };
+  const numField = (k, label) => h('div', { class: 'field' }, h('label', { for: `q-${k}` }, label),
+    h('input', { id: `q-${k}`, type: 'number', min: 0, step: 1, inputmode: 'numeric', value: dossier.quick?.[k] ?? '', placeholder: '0',
+      oninput: (ev) => setQ(k, ev.target.value === '' ? null : Math.max(0, Number(ev.target.value))) }));
+  const yesNo = (k, label) => h('div', { class: 'field' }, h('label', { for: `q-${k}` }, label),
+    select(`q-${k}`, dossier.quick?.[k] ?? '', [['', 'Choose'], ['yes', 'Yes'], ['no', 'No']], (ev) => setQ(k, ev.target.value || null)));
+  const fields = [];
+  if (journal && level > DOCTORATE_REQUIRED_ABOVE_LEVEL) fields.push(yesNo('phd', 'Do you hold a Ph.D. (or an equivalent professional qualification)?'));
+  if (journal && (nig || JOURNAL_GATES.articles[level] != null)) fields.push(numField('articles', 'How many journal articles have you published?'));
+  if (journal && nig) fields.push(numField('in_language', 'How many of them are in a Nigerian language?'));
+  if (journal && JOURNAL_GATES.firstOrCorresponding[level] != null) fields.push(numField('first_or_corresponding', 'How many as first-named or corresponding author?'));
+  if (journal && !nig && JOURNAL_GATES.indexedMajor[level] != null) {
+    fields.push(numField('indexed_major', 'How many major articles in Thomson Reuters, SJR or SNIP-ranked journals?'));
+    fields.push(numField('thomson_reuters', 'Of those, how many in Thomson Reuters (Clarivate) journals?'));
+    fields.push(numField('indexed_first', 'Of those ranked ones, how many as first-named or corresponding author?'));
+    fields.push(yesNo('patent', 'Do you hold a granted patent?'));
+  }
+  if (TABLE_1_CONF_MIN(cadre, level)) {
+    fields.push(numField('conf_below_sl', 'Conference papers you read (with evidence) before becoming Senior Lecturer'));
+    if (level >= 4) fields.push(numField('conf_from_sl', 'Conference papers you read as Senior Lecturer or above'));
+  }
+  if (['lecturing', 'research_teaching', 'tutor'].includes(cadre)) fields.push(numField('evaluation', "Your students' course-evaluation score this year (%)"));
+  show();
+  refreshQuick = show;
+  return h('div', { class: 'card', style: 'background:#fbfcfb' },
+    h('h2', { style: 'margin-top:0' }, 'Do I qualify for appraisal? (quick check)'),
+    h('p', { class: 'hint' }, 'Answer these and see at once whether you meet the conditions for the rank you are seeking, before entering anything else. It uses the same rules as the full appraisal; the waiting period comes from the date above.'),
+    h('div', { class: 'grid' }, ...fields),
+    h('div', { style: 'margin-top:12px' }, result));
 }
 
 /**
@@ -248,7 +348,7 @@ function appraisalYearField() {
     oninput: (ev) => {
       const p = parseSession(ev.target.value);
       describe(ev.target.value);
-      if (p.year) { delete session.drafts['track.appraisal_year']; if (p.year !== dossier.track.appraisal_year) commit({ ...dossier, track: { ...dossier.track, appraisal_year: p.year } }); }
+      if (p.year) { delete session.drafts['track.appraisal_year']; if (p.year !== dossier.track.appraisal_year) { commit({ ...dossier, track: { ...dossier.track, appraisal_year: p.year } }); refreshQuick?.(); } }
       else if (p.empty) { delete session.drafts['track.appraisal_year']; if (dossier.track.appraisal_year != null) commit({ ...dossier, track: { ...dossier.track, appraisal_year: null } }); }
       else session.drafts['track.appraisal_year'] = ev.target.value;
       saveSessionSoon();

@@ -121,6 +121,18 @@ try {
   await t(`[...document.querySelectorAll('.track')].find((x) => x.textContent.startsWith('Lecturer I → Senior Lecturer')).querySelector('input').click();`);
   await settle();
   await t(`__t.type('Date of your last promotion', '2021-10-01');`);
+  await settle();
+  const quick = (k, v) => s.exec(`const e = document.getElementById('q-${k}'); e.value = arguments[0]; e.dispatchEvent(new Event(e.tagName === 'SELECT' ? 'change' : 'input', { bubbles: true }));`, [v]);
+  check('the quick check asks what Senior Lecturer needs', (await s.exec(`return Boolean(document.getElementById('q-phd') && document.getElementById('q-thomson_reuters'))`)));
+  for (const [k, v] of [['phd', 'yes'], ['articles', '5'], ['first_or_corresponding', '5'], ['indexed_major', '3'], ['thomson_reuters', '0'], ['indexed_first', '3'], ['evaluation', '86'], ['conf_below_sl', '5']]) await quick(k, v);
+  await settle();
+  check('one Thomson Reuters article short: "Not qualified", naming it', /Not qualified for appraisal to Senior Lecturer\.[\s\S]*Thomson Reuters/.test(await s.exec(`return document.querySelector('.verdict-bad').textContent`)));
+  await quick('thomson_reuters', '1');
+  await settle();
+  check('with it: "Qualified for appraisal to Senior Lecturer."', /Qualified for appraisal to Senior Lecturer\./.test(await s.exec(`return (document.querySelector('.congrats') || {}).textContent || ''`)));
+  await s.exec(`const e = document.getElementById('steps-cadre'); e.value = 'research'; e.dispatchEvent(new Event('change', { bubbles: true }));`);
+  check('the steps table shows another cadre at a glance', /Principal Research Fellow[\s\S]*Conference papers read/.test(await s.exec(`return document.getElementById('steps-cadre').closest('details').textContent`)));
+  check('looking at another cadre changes nothing', JSON.parse(await t('return __t.record()')).track.cadre === 'lecturing');
   const tr = JSON.parse(await t('return __t.record()')).track;
   check('the track is recorded', tr.current_level === 2 && tr.target_level === 3 && tr.appraisal_year === 2025);
   check('the Igbo name is stored exactly', JSON.parse(await t('return __t.record()')).candidate.name === 'Adaeze Ọkọnkwọ');

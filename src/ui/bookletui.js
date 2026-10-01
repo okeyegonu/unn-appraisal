@@ -110,7 +110,8 @@ export function renderBookletStep({ getDossier, commit, blobs, go }) {
   const scores = h('div', { class: 'checks' },
     check('fill_asap2_scores', 'Also write my own scores on Form ASAP/2 (normally left for the Head of Department and the Dean)'),
     check('assessment_estimates', "Also write my own estimates in columns 7 to 14 of the assessment table (major/minor, grade, class, scores); columns 3 to 6 stay for the assessor"),
-    check('cover', 'Begin with a cover page and contents'));
+    check('cover', 'Begin with a cover page and contents'),
+    check('prima_facie', 'Open with my prima facie assessment (my own reckoning of the case, with every condition, for me to sign)'));
   const layout = h('div', {},
     h('h2', {}, 'Arrangement'),
     h('div', { class: 'tracks' },
@@ -174,7 +175,7 @@ export function renderBookletStep({ getDossier, commit, blobs, go }) {
   bDocx.addEventListener('click', () => make('docx'));
 
   // Form ASCV on its own, for Reader and Professor: it goes with the publications to each
-  // external assessor (Ch. 3 §3(h)). The full booklet carries it too.
+  // external assessor (Ch. 3 §3(j)). The full booklet carries it too.
   if (d.track.target_level >= 4 && d.track.cadre !== 'tutor') {
     const aPdf = h('button', { type: 'button' }, 'Download Form ASCV (PDF)');
     const aDocx = h('button', { type: 'button', class: 'secondary' }, 'Download Form ASCV (Word)');
